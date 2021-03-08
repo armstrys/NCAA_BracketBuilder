@@ -1,18 +1,5 @@
-Please drop the following Kaggle data files into the folder labeled (either men's or women's) into this folder - data can be found through the Kaggle comps:
+These data files come from the Kaggle NCAA March Madness competition. Please visit the following websites for details.
 
-MNCAATourneySeeds.csv
-MNCAATourneySlots.csv
-MSeasons.csv
-MTeams.csv
-submission.csv - Kaggle formatted submission file for this year. you can rename the file near the top of the code if needed
+https://www.kaggle.com/c/ncaam-march-mania-2021/
 
-OR
-
-WNCAATourneySeeds.csv
-WNCAATourneySlots.csv
-WSeasons.csv
-WTeams.csv
-submission.csv - Kaggle formatted submission file for this year. you can rename the file near the top of the code if needed
-
-
-
+https://www.kaggle.com/c/ncaaw-march-mania-2021/
