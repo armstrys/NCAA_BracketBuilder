@@ -1,5 +1,20 @@
-These data files come from the Kaggle NCAA March Madness competition. Please visit the following websites for details.
+You will need to place data friles from the Kaggle NCAA March Madness competition in this folder. Please visit the following websites for details.
 
 https://www.kaggle.com/c/ncaam-march-mania-2021/
 
 https://www.kaggle.com/c/ncaaw-march-mania-2021/
+
+
+WNCAATourneySeeds.csv
+MNCAATourneySlots.csv
+MSeasons.csv
+MTeams.csv
+mens_submission.csv - Kaggle formatted submission file for this year. you can rename the file near the top of the code if needed
+
+OR
+
+WNCAATourneySeeds.csv
+WNCAATourneySlots.csv
+WSeasons.csv
+WTeams.csv
+womens_submission.csv - Kaggle formatted submission file for this year. you can rename the file near the top of the code if needed
