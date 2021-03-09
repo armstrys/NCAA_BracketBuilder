@@ -9,7 +9,10 @@ import glob
 
 path = Path('./input/')  #path for data files
 
-## you can change the other file names here, or just use the Kaggle names and run the dashboard as is.
+st.sidebar.write('''
+                 If you would like to self-host this app find it on
+                 github [here](https://github.com/armstrys/NCAA_BracketBuilder).
+                 ''')
 submission_file = st.sidebar.file_uploader(label='Drag your Kaggle solution file here')
 # submission_file = st.sidebar.selectbox(label='Choose submission file from list',options=glob.glob('./input/*submission.csv'))
 mw = (st.sidebar.radio(label='Men\'s or Women\'s submission?',options=['Men','Women'] ))[0][0]
