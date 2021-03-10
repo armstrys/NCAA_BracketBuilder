@@ -94,10 +94,12 @@ slots = pd.read_csv(slots_file)
 
 try:
     submission = pd.read_csv(submission_file)
-except: 
+except ValueError:
     st.warning('Please add a valid solution file and adjust settings to continue!')
+    quit()
 
 submission, slots, seeds_dict, season = load_submission(submission,slots,seeds,season_info)
+
 
 stocastic = st.sidebar.radio('Stocastic or Deterministic Bracket?', ['Deterministic','Stochastic']) == 'Stochastic'
 st.sidebar.write('''
@@ -140,7 +142,13 @@ def update_games(games,round,next_round):
 
         game = row['Game']
         id = (str(season)+'_'+ str(row['StrongID'])+'_'+ str(row['WeakID']))
-        pred = submission.loc[submission['ID']==id,'Pred'].values[0]
+        
+        try:
+            pred = submission.loc[submission['ID']==id,'Pred'].values[0]
+        except IndexError:
+            st.warning('Please check that you have selected the right competition: men\'s or women\'s')
+            quit()
+
         if pred> winThresh:
             winslot = row['StrongSeed']
             winID = row['StrongID']
