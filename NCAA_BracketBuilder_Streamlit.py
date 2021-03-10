@@ -28,11 +28,10 @@ slots_file = path/(mw+'NCAATourneySlots.csv')
 Please look at the settings in the side bar to get started. You will add your solution file there.
 
 This GUI will walk you through the bracket game by game. Periodically a table will show you your picks (that you can
-eventually export) so that you can make sure things are on track. The slider at the top lets you choose a threshold for
-games that you want to manually edit. If you only want to edit close games, choose something like 0.6 or 0.7. If you want
-all games to be editable choose 1. If you want to change your selection for a game, click the radio button for the team of
+eventually export) so that you can make sure things are on track. If you want to change your selection for a game, click the radio button for the team of
 your choice. The result should be reflected in the text below your choice. If not try clicking off and on (and be sure to
-check the table before you export your results).
+check the table before you export your results). If you would like a test submission file you can find one on the
+[Github page](https://github.com/armstrys/NCAA_BracketBuilder) for this dashboard.
 
 At the end you will have the option to export your final picks and you will be able to see a quick summary of your bracket
 that you can screenshot for reference - the bracket is also a good way to check that your selections are okay. Unfortunately,
