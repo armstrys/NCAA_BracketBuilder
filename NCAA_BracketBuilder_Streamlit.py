@@ -147,14 +147,7 @@ def update_games(games,round,next_round):
         except IndexError:
             st.warning('Please check that you have selected the right competition: men\'s or women\'s')
             quit()
-
-        if pred>.5:
-            favoredID = row['StrongID']
-            favoredname = teams_dict[favoredID]
-        else:
-            favoredID = row['StrongID']
-            favoredname = teams_dict[favoredID]
-
+        
         if pred> winThresh:
             winslot = row['StrongSeed']
             winID = row['StrongID']
@@ -182,7 +175,7 @@ def update_games(games,round,next_round):
             pred = 1 - pred
         
 
-        st.write( str(favoredname) + ' predicted to win with a ' + str(np.round(pred*1000)/10) + '% chance')
+        st.write( str(winname) + ' is expected to win ' + str(np.round(pred*1000)/10) + '% of the time')
         st.write('**' + winname + '** advances!')
         games.loc[idx,'WinnerSeed'] = winslot
         games.loc[idx,'WinnerID'] = winID
