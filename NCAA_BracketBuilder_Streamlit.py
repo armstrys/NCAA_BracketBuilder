@@ -121,6 +121,8 @@ games['StrongID'] = ''
 games['WeakID'] = ''
 games['WinnerID'] = ''
 games.loc[:,'WinPred'] = np.nan
+games.loc[:,'LogLoss'] = np.nan
+
 game_cols = games.columns.to_list()
 new_cols = [game_cols[8]]+game_cols[6:8]+game_cols[4:6]+[game_cols[12]]+game_cols[9:12]+game_cols[0:4]
 games = games[new_cols]
@@ -128,10 +130,10 @@ games.sort_values('Round',inplace=True)
 games.reset_index(inplace=True,drop=True)
 
 ## define simulation for one round of tournament games
-def update_games(games,round,next_round):
+def update_games(games,rnd,next_rnd):
 
     ## fill in TeamID's and Names for all games in round
-    for idx,row in games[games['Round']==round].iterrows():
+    for idx,row in games[games['Round']==rnd].iterrows():
         games.loc[idx,'StrongID'] = seeds_dict[row['StrongSeed']]
         games.loc[idx,'WeakID'] = seeds_dict[row['WeakSeed']]
         games.loc[idx,'StrongName'] = teams_dict[games.loc[idx,'StrongID']]
@@ -139,7 +141,7 @@ def update_games(games,round,next_round):
         games.sort_values(by=['Round','StrongSeed'],inplace=True)
 
     ## Model each game
-    for idx,row in games[games['Round']==round].iterrows():
+    for idx,row in games[games['Round']==rnd].iterrows():
 
         ## Set the win threshold to .5 (always take favored team) or random (stochastic model)
         if stochastic==True:
@@ -208,36 +210,41 @@ def update_games(games,round,next_round):
                      ' at ' + str(np.round((.50+abs(pred-.50))*1000)/10) # this accounts for model favoring weak seed
                      + '%, but despite the odds...')
 
+        ## calc logloss
+        logloss = -np.log(winpred)
+
         ## Write out the winner of the game (or tournament!)
-        if round != 'R6':
-            st.write('**' + winname + '** advances!')
+        if rnd != 'R6':
+            st.write('**' + winname + '** advances! Model log loss = ' + str(round(logloss*1e5)/1e5))
         else:
-            st.write('**' + winname + '** wins the ' + str(season) + ' tournament!')
+            st.write('**' + winname + '** wins the ' + str(season) + ' tournament! ' + 
+            'Model log loss = '+ str(round(logloss*1e5)/1e5))
 
         ## placing winner info into data table with their odds of winning
         games.loc[idx,'WinnerSeed'] = winslot
         games.loc[idx,'WinnerID'] = winID
         games.loc[idx,'WinnerName'] = winname
         games.loc[idx,'WinPred'] = winpred
+        games.loc[idx,'LogLoss'] = logloss
 
         ## Placing winner in correct bracket spot depending on round
-        if round == 'R0': # play in game
+        if rnd == 'R0': # play in game
             next_slot = game
-            games.loc[games['Round']==next_round,'StrongSeed'] = (games.loc[games['Round']==next_round,'StrongSeed']
+            games.loc[games['Round']==next_rnd,'StrongSeed'] = (games.loc[games['Round']==next_rnd,'StrongSeed']
                                                                     .replace({next_slot:winslot}))
-            games.loc[games['Round']==next_round,'WeakSeed'] = (games.loc[games['Round']==next_round,'WeakSeed']
+            games.loc[games['Round']==next_rnd,'WeakSeed'] = (games.loc[games['Round']==next_rnd,'WeakSeed']
                                                                     .replace({next_slot:winslot}))
-        elif round == 'R5': # Semi-final
+        elif rnd == 'R5': # Semi-final
             if game == 'X':
-                games.loc[games['Round']==next_round,'StrongSeed'] = winslot
+                games.loc[games['Round']==next_rnd,'StrongSeed'] = winslot
             else:
-                games.loc[games['Round']==next_round,'WeakSeed'] = winslot
+                games.loc[games['Round']==next_rnd,'WeakSeed'] = winslot
 
         else: # all other rounds
-            next_slot = round+game
-            games.loc[games['Round']==next_round,'StrongSeed'] = (games.loc[games['Round']==next_round,'StrongSeed']
+            next_slot = rnd+game
+            games.loc[games['Round']==next_rnd,'StrongSeed'] = (games.loc[games['Round']==next_rnd,'StrongSeed']
                                                                     .replace({next_slot:winslot}))
-            games.loc[games['Round']==next_round,'WeakSeed'] = (games.loc[games['Round']==next_round,'WeakSeed']
+            games.loc[games['Round']==next_rnd,'WeakSeed'] = (games.loc[games['Round']==next_rnd,'WeakSeed']
                                                                     .replace({next_slot:winslot}))
     st.write('**Check your picks here before moving on**') 
     st.dataframe(games.dropna())
@@ -277,20 +284,19 @@ if st.button('Export Picks to .csv'):
 st.header('Okay... where\'s my final data? Check your bracket below! Keep scrolling...')
 bracket_odds = int(round(1/np.multiply.reduce(np.array(games['WinPred']))))
 bracket_odds_noPI = int(round(1/np.multiply.reduce(np.array(games.loc[games['Round']!= 'R0','WinPred']))))
-games['logloss'] = -np.log(games['WinPred'])
-logloss = np.mean(games.loc[games['Round']!= 'R0','logloss'])
+avglogloss = np.mean(games.loc[games['Round']!= 'R0','LogLoss'])
 
 if mw=='W':
     st.write('''
             According to these probabilities, your odds of a perfect bracket are 1 in **{a:,d}**...  
             Yikes! Good luck! :) \n\n The expected logloss of this bracket outcome is {logloss}.
-            '''.format(a=bracket_odds,logloss=logloss))
+            '''.format(a=bracket_odds,logloss=avglogloss))
 else:
     st.write('''
             According to these probabilities, your odds of a perfect bracket are 1 in **{a:,d}** including
             the play-in games or **{b:,d}** not including the play-in games...  
             Yikes! Good luck! :) \n\n The expected logloss of this bracket outcome is {logloss}.
-            '''.format(a=bracket_odds,b=bracket_odds_noPI,logloss=logloss))
+            '''.format(a=bracket_odds,b=bracket_odds_noPI,logloss=avglogloss))
 
 ## Quick bracket viz
 graph = graphviz.Digraph(node_attr={'shape': 'rounded','color': 'lightblue2'})
