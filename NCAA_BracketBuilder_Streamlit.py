@@ -285,18 +285,21 @@ st.header('Okay... where\'s my final data? Check your bracket below! Keep scroll
 bracket_odds = int(round(1/np.multiply.reduce(np.array(games['WinPred']))))
 bracket_odds_noPI = int(round(1/np.multiply.reduce(np.array(games.loc[games['Round']!= 'R0','WinPred']))))
 avglogloss = np.mean(games.loc[games['Round']!= 'R0','LogLoss'])
+success = np.mean(games.loc[games['Round']!= 'R0','WinPred']>.5)
 
 if mw=='W':
     st.write('''
             According to these probabilities, your odds of a perfect bracket are 1 in **{a:,d}**...  
-            Yikes! Good luck! :) \n\n The expected logloss of this bracket outcome is {logloss}.
-            '''.format(a=bracket_odds,logloss=avglogloss))
+            Yikes! Good luck! :) \n\n The expected logloss of this bracket outcome is {logloss} with a model
+            accuracy of {c:,d}%.
+            '''.format(a=bracket_odds,logloss=avglogloss, c=int(success*100)))
 else:
     st.write('''
             According to these probabilities, your odds of a perfect bracket are 1 in **{a:,d}** including
             the play-in games or **{b:,d}** not including the play-in games...  
-            Yikes! Good luck! :) \n\n The expected logloss of this bracket outcome is {logloss}.
-            '''.format(a=bracket_odds,b=bracket_odds_noPI,logloss=avglogloss))
+            Yikes! Good luck! :) \n\n The expected logloss of this bracket outcome is {logloss} with a model
+            accuracy of {c:,d}%.
+            '''.format(a=bracket_odds,b=bracket_odds_noPI,logloss=avglogloss, c=int(success*100)))
 
 ## Quick bracket viz
 graph = graphviz.Digraph(node_attr={'shape': 'rounded','color': 'lightblue2'})
