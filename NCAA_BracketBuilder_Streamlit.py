@@ -44,7 +44,7 @@ at Kaggle for putting on the March Machine Learning Mania [Men's]
 (https://www.kaggle.com/c/ncaaw-march-mania-2021) tournaments!
 '''
 
-##loading function
+## function to load and prep data table for simulations
 def load_submission(df,slots,seeds,season_info):
     df[['Season','LeftTeamID','RightTeamID']] = df['ID'].str.split('_',expand=True)
     df.reset_index(inplace=True, drop=True)
@@ -86,27 +86,32 @@ def load_submission(df,slots,seeds,season_info):
 
     return df, slots, seeds_dict, season
 
+## load raw data files
 season_info = pd.read_csv(seasons_file)
 teams_dict = pd.read_csv(teams_file).set_index('TeamID')['TeamName'].to_dict() # Create team dictionary to go from team ID to team name
 seeds = pd.read_csv(seeds_file)
 slots = pd.read_csv(slots_file)
 
+## try to read submission file
 try:
     submission = pd.read_csv(submission_file)
 except ValueError:
     st.warning('Please add a valid solution file and adjust settings to continue!')
     quit()
 
+## prep data files for simulation
 submission, slots, seeds_dict, season = load_submission(submission,slots,seeds,season_info)
 
-
-stocastic = st.sidebar.radio('Stocastic or Deterministic Bracket?', ['Deterministic','Stochastic']) == 'Stochastic'
+## Choice of bracket modeling type
+stochastic = st.sidebar.radio('Stochastic or Deterministic Bracket?', ['Deterministic','Stochastic']) == 'Stochastic'
 st.sidebar.write('''
-                 A deterministic bracket will always select the team favored by the model. The stocastic
-                 bracket will randomize the winner for each game using the model probabilities. You will get a
+                 Note that no manual overrides are available for a stochastic bracket.\n
+                 **Deterministic bracket**: will always select the team favored by the model.\n
+                 **Stochastic bracket**: will randomize the winner for each game using the model probabilities. You will get a
                  different bracket each time you run the model!
                  ''')
 
+## preallocate columns for simulation
 games = slots.copy()
 games['WinnerSeed'] = ''
 games['StrongName'] = ''
@@ -115,15 +120,17 @@ games['WinnerName'] = ''
 games['StrongID'] = ''
 games['WeakID'] = ''
 games['WinnerID'] = ''
-games.loc[:,'Pred'] = np.nan
+games.loc[:,'WinPred'] = np.nan
 game_cols = games.columns.to_list()
 new_cols = [game_cols[8]]+game_cols[6:8]+game_cols[4:6]+[game_cols[12]]+game_cols[9:12]+game_cols[0:4]
 games = games[new_cols]
 games.sort_values('Round',inplace=True)
 games.reset_index(inplace=True,drop=True)
 
+## define simulation for one round of tournament games
 def update_games(games,round,next_round):
 
+    ## fill in TeamID's and Names for all games in round
     for idx,row in games[games['Round']==round].iterrows():
         games.loc[idx,'StrongID'] = seeds_dict[row['StrongSeed']]
         games.loc[idx,'WeakID'] = seeds_dict[row['WeakSeed']]
@@ -131,30 +138,47 @@ def update_games(games,round,next_round):
         games.loc[idx,'WeakName'] = teams_dict[games.loc[idx,'WeakID']]
         games.sort_values(by=['Round','StrongSeed'],inplace=True)
 
-    
+    ## Model each game
     for idx,row in games[games['Round']==round].iterrows():
 
-        if stocastic==True:
+        ## Set the win threshold to .5 (always take favored team) or random (stochastic model)
+        if stochastic==True:
             winThresh = np.random.rand()
         else:
             winThresh = .5
 
+        ## Add a game id
         game = row['Game']
         id = (str(season)+'_'+ str(row['StrongID'])+'_'+ str(row['WeakID']))
         
+        ## Get prediction from submission
         try:
             pred = submission.loc[submission['ID']==id,'Pred'].values[0]
         except IndexError:
             st.warning('Please check that you have selected the right competition: men\'s or women\'s')
             quit()
+
+        ## Print matchup to dashboard
+        st.subheader( row['StrongSeed'] +' **' + row['StrongName'] + '** vs ' + 
+                row['WeakSeed'] + ' **' + row['WeakName'] + '**')
         
-        if pred> winThresh:
+        ## determine which team the model favors (may be different than winner in stochastic bracket)
+        if pred>.5:
+            favoredid = row['StrongID']
+            favoredname = teams_dict[favoredid]
+        else:
+            favoredid = row['WeakID']
+            favoredname = teams_dict[favoredid]
+
+        ## set winning and losing team info for game from prediction and win threshold
+        if pred > winThresh:
             winslot = row['StrongSeed']
             winID = row['StrongID']
             winname = teams_dict[winID]
             loseslot = row['WeakSeed']
             loseID = row['WeakID']
             losename = teams_dict[loseID]
+            winpred = pred
         else:
             winslot = row['WeakSeed']
             winID = row['WeakID']
@@ -162,46 +186,61 @@ def update_games(games,round,next_round):
             loseslot = row['StrongSeed']
             loseID = row['StrongID']
             losename = teams_dict[loseID]
-            pred = 1 - pred
+            winpred = 1 - pred
 
-        st.subheader( row['StrongSeed'] +' **' + row['StrongName'] + '** vs ' + 
-                row['WeakSeed'] + ' **' + row['WeakName'] + '**')
+        ## option for user to overwrite game - only in deterministic bracket due to streamlit limitations
+        if stochastic==False:
+            overwrite = st.radio(label='Manual pick:',options=[winname,losename])
+            if overwrite == losename:
+                winslot = loseslot
+                winID = loseID
+                winname = losename
+                winpred = 1 - winpred
+        else:
+            pass # no option to override stochastic matchups since streamlit will re-run everything.
         
-        overwrite = st.radio(label='Manual pick:',options=[winname,losename])
-        if overwrite == losename:
-            winslot = loseslot
-            winID = loseID
-            winname = losename
-            pred = 1 - pred
-        
+        ## Check to see if the current winning team was favored by the model
+        if winname==favoredname:
+            st.write('The model favors ' + str(favoredname)
+                     + ' at ' + str(np.round((.50+abs(pred-.50))*1000)/10) + '%')
+        else:
+            st.write('The model favors ' + str(favoredname) +
+                     ' at ' + str(np.round((.50+abs(pred-.50))*1000)/10) # this accounts for model favoring weak seed
+                     + '%, but despite the odds...')
 
-        st.write( str(winname) + ' is expected to win ' + str(np.round(pred*1000)/10) + '% of the time')
-        st.write('**' + winname + '** advances!')
+        ## Write out the winner of the game (or tournament!)
+        if round != 'R6':
+            st.write('**' + winname + '** advances!')
+        else:
+            st.write('**' + winname + '** wins the ' + str(season) + ' tournament!')
+
+        ## placing winner info into data table with their odds of winning
         games.loc[idx,'WinnerSeed'] = winslot
         games.loc[idx,'WinnerID'] = winID
         games.loc[idx,'WinnerName'] = winname
-        games.loc[idx,'Pred'] = pred
+        games.loc[idx,'WinPred'] = winpred
 
-        if round == 'R0':
+        ## Placing winner in correct bracket spot depending on round
+        if round == 'R0': # play in game
             next_slot = game
             games.loc[games['Round']==next_round,'StrongSeed'] = (games.loc[games['Round']==next_round,'StrongSeed']
                                                                     .replace({next_slot:winslot}))
             games.loc[games['Round']==next_round,'WeakSeed'] = (games.loc[games['Round']==next_round,'WeakSeed']
                                                                     .replace({next_slot:winslot}))
-        elif round == 'R5':
+        elif round == 'R5': # Semi-final
             if game == 'X':
                 games.loc[games['Round']==next_round,'StrongSeed'] = winslot
             else:
                 games.loc[games['Round']==next_round,'WeakSeed'] = winslot
 
-        else:
+        else: # all other rounds
             next_slot = round+game
             games.loc[games['Round']==next_round,'StrongSeed'] = (games.loc[games['Round']==next_round,'StrongSeed']
                                                                     .replace({next_slot:winslot}))
             games.loc[games['Round']==next_round,'WeakSeed'] = (games.loc[games['Round']==next_round,'WeakSeed']
                                                                     .replace({next_slot:winslot}))
     st.write('**Check your picks here before moving on**') 
-    st.dataframe(games)
+    st.dataframe(games.dropna())
 
     return games
 
@@ -236,9 +275,9 @@ if st.button('Export Picks to .csv'):
     games.to_csv(Path('./output/My_NCAA_Bracket.csv'))
 
 st.header('Okay... where\'s my final data? Check your bracket below! Keep scrolling...')
-bracket_odds = int(round(1/np.multiply.reduce(np.array(games['Pred']))))
-bracket_odds_noPI = int(round(1/np.multiply.reduce(np.array(games.loc[games['Round']!= 'R0','Pred']))))
-games['logloss'] = -np.log(games['Pred'])
+bracket_odds = int(round(1/np.multiply.reduce(np.array(games['WinPred']))))
+bracket_odds_noPI = int(round(1/np.multiply.reduce(np.array(games.loc[games['Round']!= 'R0','WinPred']))))
+games['logloss'] = -np.log(games['WinPred'])
 logloss = np.mean(games.loc[games['Round']!= 'R0','logloss'])
 
 if mw=='W':
@@ -272,11 +311,11 @@ for _,row in games.iterrows():
     W = round_dict[row['Round']]+'-'+row['WinnerSeed']+'-'+row['WinnerName']
     if row['StrongSeed'] == row['WinnerSeed']:
 
-        T1_params = {'color':'green', 'label': (str(int(row['Pred']*100))+'%')}
+        T1_params = {'color':'green', 'label': (str(int(row['WinPred']*100))+'%')}
         T2_params = {'color': 'red'}
         
     else:
-        T2_params = {'color':'green', 'label': (str(int(row['Pred']*100))+'%')}
+        T2_params = {'color':'green', 'label': (str(int(row['WinPred']*100))+'%')}
         T1_params = {'color': 'red'}
 
     graph.edge(T1,W,**T1_params)
