@@ -104,6 +104,10 @@ submission, slots, seeds_dict, season = load_submission(submission,slots,seeds,s
 
 ## Choice of bracket modeling type
 stochastic = st.sidebar.radio('Stochastic or Deterministic Bracket?', ['Deterministic','Stochastic']) == 'Stochastic'
+if stochastic:
+    st.sidebar.button('Generate new stochastic bracket')
+else: pass
+
 st.sidebar.write('''
                  Note that no manual overrides are available for a stochastic bracket.\n
                  **Deterministic bracket**: will always select the team favored by the model.\n
@@ -292,14 +296,19 @@ if mw=='W':
             According to these probabilities, your odds of a perfect bracket are 1 in **{a:,d}**...  
             Yikes! Good luck! :) \n\n The expected logloss of this bracket outcome is {logloss} with a model
             accuracy of {c:,d}%.
-            '''.format(a=bracket_odds,logloss=avglogloss, c=int(success*100)))
+            '''.format(a=bracket_odds,
+                       logloss=round(avglogloss*1e5)/1e5,
+                       c=int(success*100)))
 else:
     st.write('''
             According to these probabilities, your odds of a perfect bracket are 1 in **{a:,d}** including
             the play-in games or **{b:,d}** not including the play-in games...  
             Yikes! Good luck! :) \n\n The expected logloss of this bracket outcome is {logloss} with a model
             accuracy of {c:,d}%.
-            '''.format(a=bracket_odds,b=bracket_odds_noPI,logloss=avglogloss, c=int(success*100)))
+            '''.format(a=bracket_odds,
+                       b=bracket_odds_noPI,
+                       logloss=round(avglogloss*1e5)/1e5,
+                       c=int(success*100)))
 
 ## Quick bracket viz
 graph = graphviz.Digraph(node_attr={'shape': 'rounded','color': 'lightblue2'})
