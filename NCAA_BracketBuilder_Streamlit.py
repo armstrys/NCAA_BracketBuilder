@@ -27,13 +27,12 @@ slots_file = path/(mw+'NCAATourneySlots.csv')
 ## NCAA Bracket Builder
 Please look at the settings in the side bar to get started. You will add your solution file there.
 
-This GUI will walk you through the bracket game by game. Periodically a table will show you your picks (that you can
-eventually export) so that you can make sure things are on track. If you want to change your selection for a game, click the radio button for the team of
+This GUI will walk you through the bracket game by game. Periodically a table will show you your picks so that you can make sure things are on track. If you want to change your selection for a game, click the radio button for the team of
 your choice. The result should be reflected in the text below your choice. If not try clicking off and on (and be sure to
 check the table before you export your results). If you would like a test submission file you can find one on the
 [Github page](https://github.com/armstrys/NCAA_BracketBuilder) for this dashboard.
 
-At the end you will have the option to export your final picks and you will be able to see a quick summary of your bracket
+At the end you will see a table describing your final picks a quick summary of your bracket
 that you can screenshot for reference - the bracket is also a good way to check that your selections are okay. Unfortunately,
 exporting the bracket requires a standalone installation of Graphviz and isn't an option at this time (so have fun squinting).
 
@@ -105,14 +104,15 @@ submission, slots, seeds_dict, season = load_submission(submission,slots,seeds,s
 ## Choice of bracket modeling type
 stochastic = st.sidebar.radio('Stochastic or Deterministic Bracket?', ['Deterministic','Stochastic']) == 'Stochastic'
 if stochastic:
-    st.sidebar.button('Generate new stochastic bracket')
+    # st.sidebar.button('Generate new stochastic bracket')
+    seed = st.sidebar.number_input(label='Seed for stochastic bracket:',value=0,min_value=0)
+    np.random.seed(seed)
 else: pass
 
 st.sidebar.write('''
-                 Note that no manual overrides are available for a stochastic bracket.\n
                  **Deterministic bracket**: will always select the team favored by the model.\n
-                 **Stochastic bracket**: will randomize the winner for each game using the model probabilities. You will get a
-                 different bracket each time you run the model!
+                 **Stochastic bracket**: will randomize the winner for each game using the model probabilities.
+                 Please choose a new seed to change the randomization!
                  ''')
 
 ## preallocate columns for simulation
@@ -195,13 +195,13 @@ def update_games(games,rnd,next_rnd):
             winpred = 1 - pred
 
         ## option for user to overwrite game - only in deterministic bracket due to streamlit limitations
-        if stochastic==False:
-            overwrite = st.radio(label='Manual pick:',options=[winname,losename])
-            if overwrite == losename:
-                winslot = loseslot
-                winID = loseID
-                winname = losename
-                winpred = 1 - winpred
+        # if stochastic==False:
+        overwrite = st.radio(label='Manual pick:',options=[winname,losename])
+        if overwrite == losename:
+            winslot = loseslot
+            winID = loseID
+            winname = losename
+            winpred = 1 - winpred
         else:
             pass # no option to override stochastic matchups since streamlit will re-run everything.
         
@@ -280,10 +280,6 @@ games = update_games(games,'R5','R6')
 st.subheader('Round 6 - Championship!')
 
 games = update_games(games,'R6','')
-
-
-if st.button('Export Picks to .csv'):
-    games.to_csv(Path('./output/My_NCAA_Bracket.csv'))
 
 st.header('Okay... where\'s my final data? Check your bracket below! Keep scrolling...')
 bracket_odds = int(round(1/np.multiply.reduce(np.array(games['WinPred']))))
