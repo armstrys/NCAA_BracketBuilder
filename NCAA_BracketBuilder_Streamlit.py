@@ -306,48 +306,6 @@ else:
                        logloss=round(avglogloss*1e5)/1e5,
                        c=int(success*100)))
 
-# ## Quick bracket viz
-
-# round_dict = {'R0':'R1',
-#             'R1':'R2',
-#             'R2':'R3',
-#             'R3':'R4',
-#             'R4':'R5',
-#             'R5':'R6',
-#             'R6':'CH',
-#             'CH':'Winner!'
-#             }
-# graphs = {}
-# ii=0
-# for group in [['R1','R2','R3','R4'],['R5','R6']]:
-#     print(group)
-#     for _,row in games.loc[games['Round'].isin(group),:].iterrows():
-        
-#         graphs[ii] = graphviz.Digraph(node_attr={'shape': 'rounded','color': 'lightblue2'})
-
-#         T1 = row['Round']+'-'+row['StrongSeed']+'-'+row['StrongName']
-#         T2 = row['Round']+'-'+row['WeakSeed']+'-'+row['WeakName']
-#         W = round_dict[row['Round']]+'-'+row['WinnerSeed']+'-'+row['WinnerName']
-#         if row['StrongSeed'] == row['WinnerSeed']:
-
-#             T1_params = {'color':'green', 'label': (str(int(row['WinPred']*100))+'%')}
-#             T2_params = {'color': 'red'}
-            
-#         else:
-#             T2_params = {'color':'green', 'label': (str(int(row['WinPred']*100))+'%')}
-#             T1_params = {'color': 'red'}
-
-#         graphs[ii].edge(T1,W,**T1_params)
-#         graphs[ii].edge(T2,W,**T2_params)
-
-#     graphs[ii].graph_attr['rankdir'] = 'LR'
-#     graphs[ii].graph_attr['size'] = '30'
-
-#     graphs[ii].node_attr.update(style='rounded')
-
-#     st.graphviz_chart(graphs[ii])
-#     ii += 1
-
 ## Quick bracket viz
 
 round_dict = {'R0':'R1',
