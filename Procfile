@@ -1,1 +1,0 @@
-web: sh setup.sh && streamlit run NCAA_BracketBuilder_Streamlit.py
