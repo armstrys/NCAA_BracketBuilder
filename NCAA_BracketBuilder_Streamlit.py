@@ -34,7 +34,8 @@ check the table before you export your results). If you would like a test submis
 
 At the end you will see a table describing your final picks a quick summary of your bracket
 that you can screenshot for reference - the bracket is also a good way to check that your selections are okay. Unfortunately,
-exporting the bracket requires a standalone installation of Graphviz and isn't an option at this time (so have fun squinting).
+exporting the bracket requires a standalone installation of Graphviz and isn't an option at this time. To make the bracket more visible
+it is split into the Sweet 16 and earlier and the Elite 8 and later.
 
 [Streamlit](https://www.streamlit.io/), the tool used to build this allows you to change the settings to 'wide mode' in the
 upper right, which makes the chart more visible. Thanks to Streamlit for building this easy to use tool and all the folks
