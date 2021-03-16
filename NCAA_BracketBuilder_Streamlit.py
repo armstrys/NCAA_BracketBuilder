@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import glob
+import base64
 
 path = Path('./input/')  #path for data files
 
@@ -281,6 +282,18 @@ games = update_games(games,'R5','R6')
 st.subheader('Round 6 - Championship!')
 
 games = update_games(games,'R6','')
+
+def get_table_download_link(df):
+    """Generates a link allowing the data in a given panda dataframe to be downloaded
+    in:  dataframe
+    out: href string
+    """
+    csv = df.to_csv(index=False)
+    b64 = base64.b64encode(csv.encode()).decode()  # some strings <-> bytes conversions necessary here
+    href = f'<a href="data:file/csv;base64,{b64}">Download csv file</a>'
+    return href
+
+st.markdown(get_table_download_link(games), unsafe_allow_html=True)
 
 st.header('Okay... where\'s my final data? Check your bracket below! Keep scrolling...')
 bracket_odds = int(round(1/np.multiply.reduce(np.array(games['WinPred']))))
