@@ -1,11 +1,11 @@
 import streamlit as st
-import graphviz as graphviz #installed with pip
+import graphviz  # installed with pip
+# import classes
 
-## Data manipulation
+# Data manipulation
 import pandas as pd
 import numpy as np
 from pathlib import Path
-import glob
 import base64
 
 path = Path('./input/')  #path for data files
@@ -15,7 +15,6 @@ st.sidebar.write('''
                  github [here](https://github.com/armstrys/NCAA_BracketBuilder).
                  ''')
 submission_file = st.sidebar.file_uploader(label='Drag your Kaggle solution file here')
-# submission_file = st.sidebar.selectbox(label='Choose submission file from list',options=glob.glob('./input/*submission.csv'))
 mw = (st.sidebar.radio(label='Men\'s or Women\'s submission?',options=['Men','Women'] ))[0][0]
 
 seasons_file = path/(mw+'Seasons.csv')
@@ -26,23 +25,31 @@ slots_file = path/(mw+'NCAATourneySlots.csv')
 #Info
 '''
 ## NCAA Bracket Builder
-Please look at the settings in the side bar to get started. You will add your solution file there.
+Please look at the settings in the side bar to get started. You will add your
+solution file there.
 
-This GUI will walk you through the bracket game by game. Periodically a table will show you your picks so that you can make sure things are on track. If you want to change your selection for a game, click the radio button for the team of
-your choice. The result should be reflected in the text below your choice. If not try clicking off and on (and be sure to
-check the table before you export your results). If you would like a test submission file you can find one on the
-[Github page](https://github.com/armstrys/NCAA_BracketBuilder) for this dashboard.
+This GUI will walk you through the bracket game by game. Periodically a table
+will show you your picks so that you can make sure things are on track. If you
+want to change your selection for a game, click the radio button for the team
+of your choice. The result should be reflected in the text below your choice.
+If not try clicking off and on (and be sure to check the table before you
+export your results). If you would like a test submission file you can find
+one on the [Github page](https://github.com/armstrys/NCAA_BracketBuilder) for
+this dashboard.
 
-At the end you will see a table describing your final picks a quick summary of your bracket
-that you can screenshot for reference - the bracket is also a good way to check that your selections are okay. Unfortunately,
-exporting the bracket requires a standalone installation of Graphviz and isn't an option at this time. To make the bracket more visible
-it is split into the Sweet 16 and earlier and the Elite 8 and later.
+At the end you will see a table describing your final picks a quick summary of
+your bracket that you can screenshot for reference - the bracket is also a
+good way to check that your selections are okay. Unfortunately, exporting the
+bracket requires a standalone installation of Graphviz and isn't an option at
+this time. To make the bracket more visible it is split into the Sweet 16 and
+earlier and the Elite 8 and later.
 
-[Streamlit](https://www.streamlit.io/), the tool used to build this allows you to change the settings to 'wide mode' in the
-upper right, which makes the chart more visible. Thanks to Streamlit for building this easy to use tool and all the folks
-at Kaggle for putting on the March Machine Learning Mania [Men's]
-(https://www.kaggle.com/c/ncaam-march-mania-2021) and [Women's]
-(https://www.kaggle.com/c/ncaaw-march-mania-2021) tournaments!
+[Streamlit](https://www.streamlit.io/), the tool used to build this allows you
+to change the settings to 'wide mode' in the upper right, which makes the
+chart more visible. Thanks to Streamlit for building this easy to use tool and
+all the folks at Kaggle for putting on the March Machine Learning Mania
+[Men's](https://www.kaggle.com/c/ncaam-march-mania-2021) and
+[Women's](https://www.kaggle.com/c/ncaaw-march-mania-2021) tournaments!
 '''
 
 ## function to load and prep data table for simulations
