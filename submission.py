@@ -5,12 +5,13 @@ class Submission:
     def __init__(self, sub_df, files):
 
         df = sub_df.copy()
+        df.columns = [s.lower() for s in df.columns]
 
-        self.mw = files.mw
+        self.seasons = df['id'].apply(lambda x: int(x[0:4])).unique()
         self.t_dict = files.t_dict
 
         def prediction_init(row):
-            pred = Prediction(row, self.t_dict, self.mw)
+            pred = Prediction(row, self.t_dict)
             return pred
 
         self.predictions = df.apply(prediction_init, axis=1)
@@ -40,9 +41,9 @@ class Submission:
 
 class Prediction:
 
-    def __init__(self, sub_row, t_dict, mw):
+    def __init__(self, sub_row, t_dict):
 
-        self.game_id = sub_row['ID']
+        self.game_id = sub_row['id']
         self.season, self.t1_id, self.t2_id = (
             [int(x) for x in self.game_id.split('_')]
         )
@@ -51,13 +52,13 @@ class Prediction:
         self.t2_name = t_dict[self.t2_id]
 
         self.proba = {
-                      self.t1_id: sub_row['Pred'],
-                      self.t2_id: 1 - sub_row['Pred']
+                      self.t1_id: sub_row['pred'],
+                      self.t2_id: 1 - sub_row['pred']
                      }
 
         self.logloss = {
-                        self.t1_id: -np.log(sub_row['Pred']),
-                        self.t2_id: -np.log(1 - sub_row['Pred'])
+                        self.t1_id: -np.log(sub_row['pred']),
+                        self.t2_id: -np.log(1 - sub_row['pred'])
                        }
 
     def __repr__(self):
