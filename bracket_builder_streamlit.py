@@ -5,9 +5,7 @@ import graphviz  # installed with pip
 # Data manipulation
 import pandas as pd
 import numpy as np
-from load import Load
-from submission import Submission
-from tournament import Tournament
+from simulation import Load, Submission, Tournament
 import base64
 
 # Info
@@ -80,8 +78,11 @@ region_dict = {
                'Z': season_info['RegionZ'].values[0]
                 }
 
-style = st.sidebar.radio('Stochastic or Deterministic Bracket?', ['Chalk', 'Random']).lower()
-seed = st.sidebar.number_input(label='Seed for stochastic bracket:',value=0,min_value=0)
+style = st.sidebar.radio('Stochastic or Deterministic Bracket?',
+                         ['Chalk', 'Random']).lower()
+seed = (st.sidebar.number_input(label='Seed for stochastic bracket:',
+                                value=0, min_value=0)
+                               )
 np.random.seed(seed)
 
 st.sidebar.write('''
@@ -111,7 +112,7 @@ if ncaa_files.mw == 'W':
 
 # Run simulation
 while tourney.current_r < 7:
-    
+
     st.subheader(sim_headers[tourney.current_r])
     tourney.simulate_games(style)
     for g in tourney.games:
@@ -136,11 +137,13 @@ while tourney.current_r < 7:
             l_prob = pred.proba[l_id]
             w_seed = region_dict[winner.seed[0]] + '-' + winner.seed[1:]
             l_seed = region_dict[loser.seed[0]] + '-' + loser.seed[1:]
-            
+
             st.write(
-                f'{w_seed} {w_name} has a {w_prob:.1%} chance of beating {l_seed} {l_name}'
+                f'{w_seed} {w_name} has a {w_prob:.1%}' +
+                f' chance of beating {l_seed} {l_name}'
             )
-            overwrite = st.radio(label='Manual pick:', options=[w_name, l_name])
+            overwrite = st.radio(label='Manual pick:',
+                                 options=[w_name, l_name])
             if overwrite != winner.name:
                 w_name = overwrite
                 tourney.results.update({g.slot: loser})
@@ -150,6 +153,39 @@ while tourney.current_r < 7:
 
 w_name = tourney.results['R6CH'].name
 st.write(f'**{w_name} wins the tournament!**')
+
+if mw=='W':
+
+    odds =  tourney.get_odds(submission).values
+    bracket_odds = int(1/np.cumprod(odds)[-1])
+    avglogloss = np.mean(tourney.get_losses(submission).values)
+    success = (odds>.5).sum()/len(odds)
+
+    st.write('''
+            According to these probabilities, your odds of a perfect bracket
+            based on these selectionsare 1 in **{a:,d}**... Yikes! Good luck!
+            :) \n\n The expected logloss of this bracket outcome is {logloss}
+            with a model accuracy of {b:,d}%.
+            '''.format(a=bracket_odds,
+                       logloss=round(avglogloss*1e5)/1e5,
+                       b=int(success*100)))
+else:
+
+    odds =  tourney.get_odds(submission).values[4:]
+    bracket_odds = int(1/np.cumprod(odds)[-1])
+    avglogloss = np.mean(tourney.get_losses(submission).values[4:])
+    success = (odds>.5).sum()/len(odds)
+
+    st.write('''
+            According to these probabilities, your odds of a perfect bracket
+            based on these selections are 1 in **{a:,d}**... Yikes! Good luck!
+            :) \n\n The expected logloss of this bracket outcome is {logloss}
+            with a model accuracy of {b:,d}%. These statistics do not include
+            play-in games.
+            '''.format(a=bracket_odds,
+                       logloss=round(avglogloss*1e5)/1e5,
+                       b=int(success*100)))
+
 
 # st.warning('Please check that you have selected the right competition: men\'s or women\'s')
 
@@ -167,24 +203,6 @@ st.write(f'**{w_name} wins the tournament!**')
 
 # st.markdown(get_table_download_link(games), unsafe_allow_html=True)
 
-# if mw=='W':
-#     st.write('''
-#             According to these probabilities, your odds of a perfect bracket are 1 in **{a:,d}**...  
-#             Yikes! Good luck! :) \n\n The expected logloss of this bracket outcome is {logloss} with a model
-#             accuracy of {c:,d}%.
-#             '''.format(a=bracket_odds,
-#                        logloss=round(avglogloss*1e5)/1e5,
-#                        c=int(success*100)))
-# else:
-#     st.write('''
-#             According to these probabilities, your odds of a perfect bracket are 1 in **{a:,d}** including
-#             the play-in games or **{b:,d}** not including the play-in games...  
-#             Yikes! Good luck! :) \n\n The expected logloss of this bracket outcome is {logloss} with a model
-#             accuracy of {c:,d}%.
-#             '''.format(a=bracket_odds,
-#                        b=bracket_odds_noPI,
-#                        logloss=round(avglogloss*1e5)/1e5,
-#                        c=int(success*100)))
 
 
 
