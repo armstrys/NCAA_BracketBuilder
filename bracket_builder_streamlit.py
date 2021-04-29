@@ -69,7 +69,7 @@ except KeyError:
 
 # Collect simulation info
 season = int(st.sidebar
-               .selectbox(label='Season',options=np.sort(submission.seasons)))
+               .selectbox(label='Season', options=np.sort(submission.seasons)))
 season_info = ncaa_files.seasons[ncaa_files.seasons['Season'] == season]
 region_dict = {
                'W': season_info['RegionW'].values[0],
@@ -82,7 +82,7 @@ style = st.sidebar.radio('Stochastic or Deterministic Bracket?',
                          ['Chalk', 'Random']).lower()
 seed = (st.sidebar.number_input(label='Seed for stochastic bracket:',
                                 value=0, min_value=0)
-                               )
+        )
 np.random.seed(seed)
 
 st.sidebar.write('''
@@ -93,6 +93,7 @@ st.sidebar.write('''
                  change the randomization!
                  ''')
 
+# Initialize simulation
 sim_headers = {
                0: 'First Four',
                1: 'Round of 64',
@@ -103,8 +104,6 @@ sim_headers = {
                6: 'Finals'
               }
 
-
-# Initialize simulation
 tourney = Tournament(ncaa_files, submission, season)
 
 if ncaa_files.mw == 'W':
@@ -119,9 +118,6 @@ while tourney.current_r < 7:
         if g.r == tourney.current_r:
             pred = submission.get_pred(g.game_id)
             winner = tourney.results[g.slot]
-            # st.write(winner.id)
-            # st.write(g.strong_team.id)
-            # st.write(g.weak_team.id)
             if winner.id == g.strong_team.id:
                 loser = g.weak_team
             elif winner.id == g.weak_team.id:
@@ -151,15 +147,16 @@ while tourney.current_r < 7:
     tourney.advance_teams()
     tourney.current_r += 1
 
-w_name = tourney.results['R6CH'].name
+results = tourney.results
+w_name = results['R6CH'].name
 st.write(f'**{w_name} wins the tournament!**')
 
-if mw=='W':
+if mw == 'W':
 
-    odds =  tourney.get_odds(submission).values
+    odds = tourney.get_odds(submission).values
     bracket_odds = int(1/np.cumprod(odds)[-1])
     avglogloss = np.mean(tourney.get_losses(submission).values)
-    success = (odds>.5).sum()/len(odds)
+    success = (odds > .5).sum()/len(odds)
 
     st.write('''
             According to these probabilities, your odds of a perfect bracket
@@ -171,10 +168,10 @@ if mw=='W':
                        b=int(success*100)))
 else:
 
-    odds =  tourney.get_odds(submission).values[4:]
+    odds = tourney.get_odds(submission).values[4:]
     bracket_odds = int(1/np.cumprod(odds)[-1])
     avglogloss = np.mean(tourney.get_losses(submission).values[4:])
-    success = (odds>.5).sum()/len(odds)
+    success = (odds > .5).sum()/len(odds)
 
     st.write('''
             According to these probabilities, your odds of a perfect bracket
@@ -187,57 +184,75 @@ else:
                        b=int(success*100)))
 
 
-# st.warning('Please check that you have selected the right competition: men\'s or women\'s')
+def get_table_download_link():
+    '''
+    Generates a link allowing the data in a given panda dataframe to be
+    downloaded
+    in:  dataframe
+    out: href string
+    '''
 
-# overwrite = st.radio(label='Manual pick:',options=[winname,losename])
+    df = pd.DataFrame.from_dict({
+                            'slot': results.keys(),
+                            'winner': results.values(),
+                            'likelihood': tourney.get_odds(submission),
+                            'logloss': tourney.get_losses(submission)
+                                })
 
-# def get_table_download_link(df):
-#     """Generates a link allowing the data in a given panda dataframe to be downloaded
-#     in:  dataframe
-#     out: href string
-#     """
-#     csv = df.to_csv(index=False)
-#     b64 = base64.b64encode(csv.encode()).decode()  # some strings <-> bytes conversions necessary here
-#     href = f'<a href="data:file/csv;base64,{b64}">Download csv file</a>'
-#     return href
-
-# st.markdown(get_table_download_link(games), unsafe_allow_html=True)
+    csv = df.to_csv(index=False)
+    b64 = base64.b64encode(csv.encode()).decode()
+    href = f'<a href="data:file/csv;base64,{b64}">Download results csv</a>'
+    return href
 
 
+st.markdown(get_table_download_link(), unsafe_allow_html=True)
 
 
-# # Graph results
-# def graphGames(graphrounds):
-#     graph = graphviz.Digraph(node_attr={'shape': 'rounded','color': 'lightblue2'})
+# Graph results
+games = tourney.games
 
-#     for _,row in games.loc[games['Round'].isin(graphrounds),:].iterrows():
+early_games = [g for g in games if g.r < 4]
+late_games = [g for g in games if g.r >= 4]
 
-#         T1 = row['Round']+'-'+row['StrongSeed']+'-'+row['StrongName']
-#         T2 = row['Round']+'-'+row['WeakSeed']+'-'+row['WeakName']
-#         W = round_dict[row['Round']]+'-'+row['WinnerSeed']+'-'+row['WinnerName']
-#         if row['StrongSeed'] == row['WinnerSeed']:
 
-#             T1_params = {'color':'green', 'label': (str(int(row['WinPred']*100))+'%')}
-#             T2_params = {'color': 'red'}
-            
-#         else:
-#             T2_params = {'color':'green', 'label': (str(int(row['WinPred']*100))+'%')}
-#             T1_params = {'color': 'red'}
+def graphGames(games):
+    graph = graphviz.Digraph(node_attr={'shape': 'rounded',
+                                        'color': 'lightblue2'
+                                        })
+    for g in games:
 
-#         graph.edge(T1,W,**T1_params)
-#         graph.edge(T2,W,**T2_params)
+        T1 = 'R' + f'{g.r} {g.strong_team.seed}-{g.strong_team.name}'
+        T2 = 'R' + f'{g.r} {g.weak_team.seed}-{g.weak_team.name}'
+        W = 'R' + f'{g.r+1} {results[g.slot].seed}-{results[g.slot].name}'
 
-#     graph.graph_attr['rankdir'] = 'LR'
-#     graph.graph_attr['size'] = '30'
+        pred = submission.get_pred(f'{season}_' +
+                                   f'{g.strong_team.id}_{g.weak_team.id}')
+        if g.strong_team.name == results[g.slot].name:
+            odds = pred.proba[g.strong_team.id]
+            T1_params = {'color': 'green', 'label': f'{odds:.0%}'}
+            T2_params = {'color': 'red'}
 
-#     graph.node_attr.update(style='rounded')
+        else:
+            odds = pred.proba[g.weak_team.id]
+            T2_params = {'color': 'green', 'label': f'{odds:.0%}'}
+            T1_params = {'color': 'red'}
 
-#     return graph
+        graph.edge(T1, W, **T1_params)
+        graph.edge(T2, W, **T2_params)
 
-# st.subheader('Sweet 16 and earlier')
-# graph1 = graphGames(['R0','R1','R2','R3'] )
-# st.graphviz_chart(graph1)
+    graph.graph_attr['rankdir'] = 'LR'
+    graph.graph_attr['size'] = '30'
 
-# st.subheader('Elite 8 and on')
-# graph2 = graphGames(['R4','R5','R6'] )
-# st.graphviz_chart(graph2)
+    graph.node_attr.update(style='rounded')
+
+    return graph
+
+
+if st.checkbox('Show graphical representation - will slow simulations'):
+    st.subheader('Sweet 16 and earlier')
+    graph1 = graphGames(early_games)
+    st.graphviz_chart(graph1)
+
+    st.subheader('Elite 8 and on')
+    graph2 = graphGames(late_games)
+    st.graphviz_chart(graph2)
