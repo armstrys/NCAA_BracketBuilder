@@ -45,11 +45,7 @@ class Team:
 class Submission:
     '''
     Submission is a container for the Prediction class and with
-<<<<<<< HEAD
     a method that helps to retrieve predictions based on
-=======
-    a method that helps to retrieve predictions based on 
->>>>>>> 0e043a9bbbe55f7ca4c2cac3891f40ca880cf069
     the game_id.
     '''
 
