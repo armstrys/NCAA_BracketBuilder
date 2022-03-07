@@ -181,14 +181,11 @@ class Tournament:
                         self.s_dict, self.season)
             return game
 
-<<<<<<< HEAD
         if (len(self.s_dict) == 0) or (len(slots) == 0):
             raise RuntimeError('''
                     Please check to see that your submission file and
                     tournament files have both have the appropriate season.
                     ''')
-=======
->>>>>>> 0e043a9bbbe55f7ca4c2cac3891f40ca880cf069
         self.games = slots.apply(game_init, axis=1)
 
     def simulate_games(self, style):
