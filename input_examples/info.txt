@@ -1,0 +1,1 @@
+You will need to put a copy of your Kaggle data here and make sure that the code is pointing to this directory

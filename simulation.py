@@ -161,6 +161,7 @@ class Tournament:
                             .to_dict())
         self.s_dict_rev = (seeds.set_index('TeamID')['Seed']
                                 .to_dict())
+        self._summary = {}
 
         # Only men's file has differing slots by year - select the year
         #       we need and remove season column
@@ -184,6 +185,41 @@ class Tournament:
                     ''')
         self.games = slots.apply(game_init, axis=1)
 
+    @property
+    def summary(self):
+        if len(self._summary) == 0:
+            self._summary = self.summarize_results()
+        return self._summary
+    
+    def summarize_results(self, summary_data={}):
+        for slot, team in self.results.items():
+            team = team.id
+            r = slot[:2]
+            if 'R' not in r:
+                r = 'R0'
+            if summary_data.get(r) is None:
+                summary_data.update({r: {team: 1}})
+            elif summary_data[r].get(team) is None:
+                summary_data[r].update({team: 1})
+            else:
+                summary_data[r][team] += 1
+        return summary_data
+
+    def summary_to_df(self, summary=None, n_sim=1):
+
+        if summary is None:
+            summary = self.summary
+        
+        summary_df = pd.DataFrame(summary)
+        summary_df.index = [f'{self.s_dict_rev[t]} - {self.submission.t_dict[t]}'
+                            for t in summary_df.index]
+        summary_df.columns = ['First Round', 'Round of 32', 'Sweet 16',
+                                'Elite 8', 'Final 4', 'Championship', 'Winner']
+        summary_df['First Round'].fillna(n_sim, inplace=True)
+        summary_df.fillna(0, inplace=True)
+        summary_df.sort_values('Winner', ascending=False, inplace=True)
+        return summary_df
+                
     def simulate_games(self, style):
         '''
         This function uses each game class from a specific round
@@ -194,19 +230,14 @@ class Tournament:
         afer this or run simulate_round(), which runs both.
         '''
 
-        print(f'Simulating round {self.current_r}...')
-
         # function pull predicted result from game if in same round
         def find_winner(x):
             if x.r == self.current_r:
-                print(x)
                 win_id = x.get_winner(self.submission, style)
                 if x.strong_team.id == win_id:
                     self.results.update({x.slot: x.strong_team})
-                    print(f'{x.strong_team.name} wins!\n')
                 elif x.weak_team.id == win_id:
                     self.results.update({x.slot: x.weak_team})
-                    print(f'{x.weak_team.name} wins!\n')
                 else:
                     raise ValueError('Couldn\'t find winner')
 
@@ -240,20 +271,13 @@ class Tournament:
         '''
         Runs single round simulation until all are complete.
         '''
-        if seed is None and style == 'random':
-            print('running with no seed')
-        else:
-            print(f'''
-                  Running using seed = {seed}...
-                  BEWARE if running multiple simulations!
-                  ''')
+        if seed is not None:
             np.random.seed(seed)  # seed np at tournament level
 
         # Run simulations for round 0->6
         while self.current_r < 7:
             self.simulate_round(style)
             self.current_r += 1  # increments round by 1
-        print('Tournament complete')
 
     def get_losses(self, submission):
         '''
@@ -291,29 +315,31 @@ class Tournament:
         odds = self.games.apply(lambda x: calc_odds(x))
         return odds
 
-    def summarize_results(self, summary_dict):
+    def reset_tournament(self):
+        self.current_r = 0  # initiate at round 0 (play-in)
+        self.results = {}  # results stored as slot: TeamID
+
+    def simulate_tournaments(self, n_sim=500):
         '''
         Puts the tournament results in a summary format keyed
         by team and round that can be aggregated over multiple
         simulations. This results dict can be made into a pandas
         dataframe by simply calling pd.DataFrame(results) on
         a results dictionary that holds simulated outputs.
+        args:
+            summary_dict: (dict) if running multiple simultaions
+                put the previous summary result as an argument
+                to iteratively
         '''
 
-        for slot, team in self.results.items():
-            team = team.id
-            r = slot[:2]
-            if 'R' not in r:
-                r = 'R0'
+        self._summary = {}
 
-            if summary_dict.get(r) is None:
-                summary_dict.update({r: {team: 1}})
-            elif summary_dict[r].get(team) is None:
-                summary_dict[r].update({team: 1})
-            else:
-                summary_dict[r][team] += 1
-
-        return summary_dict
+        for i in range(int(n_sim)):
+            self.simulate_tournament('random', seed=i)
+            self._summary = self.summarize_results(self._summary)
+            self.reset_tournament()
+        
+        return self.summary_to_df(self._summary, n_sim=n_sim)
 
 
 class Game:
