@@ -12,18 +12,18 @@ class Load:
     '''
 
     def __init__(self, mw=None, dir='./input'):
-        self.mw = mw
         if mw is None:
             raise ValueError('Tournament type not set')
         path = Path(dir)
-        self.seasons = pd.read_csv(path/(mw+'Seasons.csv'))
-        self.teams = pd.read_csv(path/(mw+'Teams.csv'))
-        self.slots = pd.read_csv(path/(mw+'NCAATourneySlots.csv'))
-        self.seeds = pd.read_csv(path/(mw+'NCAATourneySeeds.csv'))
-        self.t_dict = (pd.read_csv(path/(mw+'Teams.csv'))
+        self.mw = mw.upper()
+        self.seasons = pd.read_csv(path/(f'{self.mw}Seasons.csv'))
+        self.teams = pd.read_csv(path/(f'{self.mw}Teams.csv'))
+        self.slots = pd.read_csv(path/(f'{self.mw}NCAATourneySlots.csv'))
+        self.seeds = pd.read_csv(path/(f'{self.mw}NCAATourneySeeds.csv'))
+        self.t_dict = (pd.read_csv(path/(f'{self.mw}Teams.csv'))
                          .set_index('TeamID')['TeamName']
                          .to_dict())
-        self.t_dict_rev = (pd.read_csv(path/(mw+'Teams.csv'))
+        self.t_dict_rev = (pd.read_csv(path/(f'{self.mw}Teams.csv'))
                              .set_index('TeamName')['TeamID']
                              .to_dict())
 
@@ -191,19 +191,19 @@ class Tournament:
             self._summary = self.summarize_results()
         return self._summary
     
-    def summarize_results(self, summary_data={}):
+    def summarize_results(self):
         for slot, team in self.results.items():
             team = team.id
             r = slot[:2]
             if 'R' not in r:
                 r = 'R0'
-            if summary_data.get(r) is None:
-                summary_data.update({r: {team: 1}})
-            elif summary_data[r].get(team) is None:
-                summary_data[r].update({team: 1})
+            if self._summary.get(r) is None:
+                self._summary.update({r: {team: 1}})
+            elif self._summary[r].get(team) is None:
+                self._summary[r].update({team: 1})
             else:
-                summary_data[r][team] += 1
-        return summary_data
+                self._summary[r][team] += 1
+        return self._summary
 
     def summary_to_df(self, summary=None, n_sim=1):
 
@@ -318,6 +318,7 @@ class Tournament:
     def reset_tournament(self):
         self.current_r = 0  # initiate at round 0 (play-in)
         self.results = {}  # results stored as slot: TeamID
+        self._summary = {}
 
     def simulate_tournaments(self, n_sim=500):
         '''
@@ -332,7 +333,7 @@ class Tournament:
                 to iteratively
         '''
 
-        self._summary = {}
+        self.reset_tournament()
 
         for i in range(int(n_sim)):
             self.simulate_tournament('random', seed=i)
