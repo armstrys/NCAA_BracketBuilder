@@ -191,7 +191,9 @@ class Tournament:
             self._summary = self.summarize_results()
         return self._summary
     
-    def summarize_results(self):
+    def summarize_results(self, previous_summary=None):
+        if previous_summary is not None:
+            self._summary = previous_summary
         for slot, team in self.results.items():
             team = team.id
             r = slot[:2]
@@ -279,6 +281,28 @@ class Tournament:
             self.simulate_round(style)
             self.current_r += 1  # increments round by 1
 
+    def simulate_tournaments(self, n_sim=500):
+        '''
+        Puts the tournament results in a summary format keyed
+        by team and round that can be aggregated over multiple
+        simulations. This results dict can be made into a pandas
+        dataframe by simply calling pd.DataFrame(results) on
+        a results dictionary that holds simulated outputs.
+        args:
+            summary_dict: (dict) if running multiple simultaions
+                put the previous summary result as an argument
+                to iteratively
+        '''
+
+        summary = {}
+
+        for i in range(int(n_sim)):
+            self.reset_tournament()
+            self.simulate_tournament('random', seed=i)
+            summary = self.summarize_results(previous_summary=summary)
+        self._summary = summary
+        return self.summary_to_df(self._summary, n_sim=n_sim)
+
     def get_losses(self, submission):
         '''
         gets losses for all predictions based on the results
@@ -319,28 +343,6 @@ class Tournament:
         self.current_r = 0  # initiate at round 0 (play-in)
         self.results = {}  # results stored as slot: TeamID
         self._summary = {}
-
-    def simulate_tournaments(self, n_sim=500):
-        '''
-        Puts the tournament results in a summary format keyed
-        by team and round that can be aggregated over multiple
-        simulations. This results dict can be made into a pandas
-        dataframe by simply calling pd.DataFrame(results) on
-        a results dictionary that holds simulated outputs.
-        args:
-            summary_dict: (dict) if running multiple simultaions
-                put the previous summary result as an argument
-                to iteratively
-        '''
-
-        self.reset_tournament()
-
-        for i in range(int(n_sim)):
-            self.simulate_tournament('random', seed=i)
-            self._summary = self.summarize_results(self._summary)
-            self.reset_tournament()
-        
-        return self.summary_to_df(self._summary, n_sim=n_sim)
 
 
 class Game:
