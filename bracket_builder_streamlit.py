@@ -1,11 +1,10 @@
 import streamlit as st
-import graphviz  # installed with pip
 # import classes
 
 # Data manipulation
 import pandas as pd
 import numpy as np
-from simulation import Load, Submission, Tournament
+from simulation import Data, Submission, Tournament
 import base64
 
 ### change your input dir to a folder with the kaggle data here ###
@@ -53,10 +52,10 @@ mw = (st.sidebar.radio(label='Men\'s or Women\'s submission?',
                        options=['Men', 'Women']))[0][0]
 
 # Prep data
-ncaa_files = Load(mw=mw, dir=input_dir)
+ncaa_data = Data(mw=mw, dir=input_dir)
 try:
     sub_df = pd.read_csv(sub_file)
-    submission = Submission(sub_df=sub_df, files=ncaa_files)
+    submission = Submission(sub_df=sub_df, files=ncaa_data)
 except ValueError:
     st.warning('''
                Please add a valid solution file and
@@ -73,7 +72,7 @@ except KeyError:
 # Collect simulation info
 season = int(st.sidebar
                .selectbox(label='Season', options=np.sort(submission.seasons)))
-season_info = ncaa_files.seasons[ncaa_files.seasons['Season'] == season]
+season_info = ncaa_data.seasons[ncaa_data.seasons['Season'] == season]
 region_dict = {
                'W': season_info['RegionW'].values[0],
                'X': season_info['RegionX'].values[0],
@@ -107,9 +106,9 @@ sim_headers = {
                6: 'Finals'
               }
 
-tourney = Tournament(ncaa_files, submission, season)
+tourney = Tournament(ncaa_data, submission, season)
 
-if ncaa_files.mw == 'W':
+if ncaa_data.mw == 'W':
     tourney.current_r += 1
 
 # Run simulation
@@ -212,50 +211,15 @@ st.markdown(get_table_download_link(), unsafe_allow_html=True)
 
 
 # Graph results
-games = tourney.games
-
-early_games = [g for g in games if g.r < 4]
-late_games = [g for g in games if g.r >= 4]
-
-
-def graphGames(games):
-    graph = graphviz.Digraph(node_attr={'shape': 'rounded',
-                                        'color': 'lightblue2'
-                                        })
-    for g in games:
-
-        T1 = 'R' + f'{g.r} {g.strong_team.seed}-{g.strong_team.name}'
-        T2 = 'R' + f'{g.r} {g.weak_team.seed}-{g.weak_team.name}'
-        W = 'R' + f'{g.r+1} {results[g.slot].seed}-{results[g.slot].name}'
-
-        pred = submission.get_pred(f'{season}_' +
-                                   f'{g.strong_team.id}_{g.weak_team.id}')
-        if g.strong_team.name == results[g.slot].name:
-            odds = pred.proba[g.strong_team.id]
-            T1_params = {'color': 'green', 'label': f'{odds:.0%}'}
-            T2_params = {'color': 'red'}
-
-        else:
-            odds = pred.proba[g.weak_team.id]
-            T2_params = {'color': 'green', 'label': f'{odds:.0%}'}
-            T1_params = {'color': 'red'}
-
-        graph.edge(T1, W, **T1_params)
-        graph.edge(T2, W, **T2_params)
-
-    graph.graph_attr['rankdir'] = 'LR'
-    graph.graph_attr['size'] = '30'
-
-    graph.node_attr.update(style='rounded')
-
-    return graph
-
-
 if st.checkbox('Show graphical representation - will slow simulations'):
     st.subheader('Sweet 16 and earlier')
-    graph1 = graphGames(early_games)
+    graph1 = tourney.graph_games(list(range(5)))
     st.graphviz_chart(graph1)
 
     st.subheader('Elite 8 and on')
-    graph2 = graphGames(late_games)
+    graph2 = tourney.graph_games(list(range(5,7)))
     st.graphviz_chart(graph2)
+
+
+if st.checkbox('Show Game Result Dictionary with IDs'):
+    st.write({slot: t.id for slot, t in tourney.results.items()})

@@ -2,11 +2,23 @@ import re
 import numpy as np
 from pathlib import Path
 import pandas as pd
+import itertools
+import graphviz  # installed with pip
 
 
-class Load:
+round_names = {
+    0: 'Play-in Games',
+    1: 'First Round',
+    2: 'Round of 32',
+    3: 'Sweet 16',
+    4: 'Elite 8',
+    5: 'Final 4',
+    6: 'Championship'
+}
+
+class Data:
     '''
-    Loads pertinent files to forward model NCAA tournament
+    Loads pertinent data to forward model NCAA tournament
     based on a given probabilities from a submission file.
     Note that the submission file will be handled seperately.
     '''
@@ -20,12 +32,17 @@ class Load:
         self.teams = pd.read_csv(path/(f'{self.mw}Teams.csv'))
         self.slots = pd.read_csv(path/(f'{self.mw}NCAATourneySlots.csv'))
         self.seeds = pd.read_csv(path/(f'{self.mw}NCAATourneySeeds.csv'))
-        self.t_dict = (pd.read_csv(path/(f'{self.mw}Teams.csv'))
-                         .set_index('TeamID')['TeamName']
-                         .to_dict())
-        self.t_dict_rev = (pd.read_csv(path/(f'{self.mw}Teams.csv'))
-                             .set_index('TeamName')['TeamID']
-                             .to_dict())
+        self.t_dict = (self.teams.set_index('TeamID')['TeamName']
+                                  .to_dict())
+        self.s_dict = (self.seeds.set_index('Seed')['TeamID']
+                                 .to_dict())
+        self.t_dict_rev = {v: k for k, v in self.t_dict.items()}
+        self.s_dict_rev = {v: k for k, v in self.s_dict.items()}
+    
+    def get_round(self, t1_id, t2_id):
+        return get_round(t1_id,
+                        t2_id,
+                        self.s_dict_rev)
 
 
 class Team:
@@ -49,32 +66,31 @@ class Submission:
     the game_id.
     '''
 
-    def __init__(self, sub_df, files):
+    def __init__(self, sub_df, data):
 
-        df = sub_df.copy()
-        df.columns = [s.lower() for s in df.columns]
+        self.df = sub_df.copy()
 
-        self.seasons = df['id'].apply(lambda x: int(x[0:4])).unique()
-        self.t_dict = files.t_dict
+        self.seasons = self.df['ID'].apply(lambda x: int(x[0:4])).unique()
+        self.t_dict = data.t_dict
+        self.s_dict = data.s_dict
+        self.t_dict_rev = data.t_dict_rev
+        self.s_dict_rev = data.s_dict_rev
 
         def prediction_init(row):
-            pred = Prediction(row, self.t_dict)
+            pred = Prediction(row, self.t_dict, self.s_dict)
             return pred
 
-        self.predictions = df.apply(prediction_init, axis=1)
+        self.df['PredData'] = self.df.apply(prediction_init, axis=1)
 
     def get_pred(self, game_id=None):
         '''
         Retrieve prediction using game_id or leave blank to get
         all predictions in a list
         '''
+        if game_id is None:
+            return self.predictions
 
-        alt_game_id = game_id.split('_')
-        alt_game_id = '_'.join([alt_game_id[0],
-                                alt_game_id[2],
-                                alt_game_id[1]
-                                ])
-
+        alt_game_id = get_alt_game_id(game_id)
         sub_ids = self.predictions.apply(lambda x: x.game_id)
 
         idx = ((sub_ids == game_id) |
@@ -85,6 +101,27 @@ class Submission:
 
         pred = self.predictions.loc[idx].squeeze()
         return pred
+    
+    @property
+    def predictions(self):
+        return self.df['PredData']
+
+    @property
+    def full_df(self):
+        full_df = self.df.copy()
+        full_df['Season'] = \
+            full_df['PredData'].map(lambda x: x.season)
+        full_df['Round'] = \
+            full_df['PredData'].map(lambda x: x.round)
+        full_df['Team1ID'] = \
+            full_df['PredData'].map(lambda x: x.t1_id)
+        full_df['Team2ID'] = \
+            full_df['PredData'].map(lambda x: x.t2_id)
+        full_df.set_index('ID', inplace=True)
+        col_order = ['Season','Round','Team1ID',
+                     'Team2ID','Pred','PredData']
+
+        return full_df[col_order]
 
 
 class Prediction:
@@ -94,25 +131,18 @@ class Prediction:
     favored or a random sample using the odds.
     '''
 
-    def __init__(self, sub_row, t_dict):
+    def __init__(self, sub_row, t_dict, s_dict):
 
-        self.game_id = sub_row['id']
+        self.data = sub_row.copy()
+        self.t_dict = t_dict
+        self.t_dict_rev = {v: k for k, v in t_dict.items()}
+        self.s_dict = s_dict
+        self.s_dict_rev = {v: k for k, v in s_dict.items()}
+        self.game_id = self.data['ID']
         self.season, self.t1_id, self.t2_id = (
             [int(x) for x in self.game_id.split('_')]
         )
-
-        self.t1_name = t_dict[self.t1_id]
-        self.t2_name = t_dict[self.t2_id]
-
-        self.proba = {
-                      self.t1_id: sub_row['pred'],
-                      self.t2_id: 1 - sub_row['pred']
-                     }
-
-        self.logloss = {
-                        self.t1_id: -np.log(sub_row['pred']),
-                        self.t2_id: -np.log(1 - sub_row['pred'])
-                       }
+        self.pred = self.data['Pred']
 
     def __repr__(self):
         if self.proba[self.t1_id] > .5:
@@ -124,8 +154,40 @@ class Prediction:
             win_name = self.t2_name
             lose_name = self.t1_name
 
-        return (f'{proba:.1%} chance of ' +
+        return (f'{proba:.1%} chance of ' \
                 f'{win_name} beating {lose_name}')
+
+    @property
+    def t1_name(self):
+        return self.t_dict[self.t1_id]
+    
+    @property
+    def t2_name(self):
+        return self.t_dict[self.t2_id]
+    
+    @property
+    def alt_game_id(self):
+        return get_alt_game_id(self.game_id)
+
+    @property
+    def proba(self): 
+        return {
+            self.t1_id: self.pred,
+            self.t2_id: 1 - self.pred
+        }
+
+    @property
+    def logloss(self):
+        return {
+            self.t1_id: -np.log(self.pred),
+            self.t2_id: -np.log(1 - self.pred)
+        }
+    
+    @property
+    def round(self):
+        return get_round(self.t1_id,
+                         self.t2_id,
+                         self.s_dict_rev)
 
     def get_favored(self):
         if self.proba[self.t1_id] > 0.5:
@@ -139,13 +201,12 @@ class Prediction:
         else:
             return self.t2_id
 
-
 class Tournament:
 
-    def __init__(self, files, submission, season):
+    def __init__(self, data, submission, season):
         '''
         Tournament class will hold all game classes and functions
-        to handle games. Needs NCAA files and submission as input
+        to handle games. Needs NCAA data and submission as input
         along with the season that will be modeled.
         '''
 
@@ -156,32 +217,30 @@ class Tournament:
         self.results = {}  # results stored as slot: TeamID
 
         # Create seed: teamID dictionary
-        seeds = files.seeds[files.seeds['Season'] == self.season]
-        self.s_dict = (seeds.set_index('Seed')['TeamID']
-                            .to_dict())
-        self.s_dict_rev = (seeds.set_index('TeamID')['Seed']
-                                .to_dict())
+        self.t_dict = data.t_dict
+        self.s_dict = data.s_dict
+        self.s_dict_rev = data.s_dict_rev
         self._summary = {}
 
         # Only men's file has differing slots by year - select the year
         #       we need and remove season column
-        slots = files.slots
+        slots = data.slots
         if 'Season' in slots.columns:
-            slots = slots[files.slots['Season'] == season].copy()
+            slots = slots[data.slots['Season'] == season].copy()
             slots.drop(columns='Season', inplace=True)
         else:
             pass
 
         # Initiate game classes and save as Tournament attribute
         def game_init(row):
-            game = Game(row, submission, files.t_dict,
+            game = Game(row, submission, data.t_dict,
                         self.s_dict, self.season)
             return game
 
         if (len(self.s_dict) == 0) or (len(slots) == 0):
             raise RuntimeError('''
                     Please check to see that your submission file and
-                    tournament files have both have the appropriate season.
+                    tournament data class has both have the appropriate season.
                     ''')
         self.games = slots.apply(game_init, axis=1)
 
@@ -212,8 +271,7 @@ class Tournament:
         if summary is None:
             summary = self.summary
         
-        columns = ['First Round', 'Round of 32', 'Sweet 16',
-                   'Elite 8', 'Final 4', 'Championship', 'Winner']
+        columns = [round_names.get(k) for k in range(7)]
         summary_df = pd.DataFrame(summary)
         summary_df.columns = columns
         summary_df.index.name = 'TeamID'
@@ -344,10 +402,60 @@ class Tournament:
         odds = self.games.apply(lambda x: calc_odds(x))
         return odds
 
+    def graph_games(self, rounds=list(range(7))):
+        games = [g for g in self.games if g.r in rounds]
+
+        graph = graphviz.Digraph(node_attr={'shape': 'rounded',
+                                            'color': 'lightblue2'
+                                            })
+        for g in games:
+
+            T1 = 'R' + f'{g.r} {g.strong_team.seed}-{g.strong_team.name}'
+            T2 = 'R' + f'{g.r} {g.weak_team.seed}-{g.weak_team.name}'
+            W = 'R' + f'{g.r+1} {self.results[g.slot].seed}' \
+                f'-{self.results[g.slot].name}'
+
+            pred = self.submission.get_pred(f'{self.season}_' +
+                                    f'{g.strong_team.id}_{g.weak_team.id}')
+            if g.strong_team.name == self.results[g.slot].name:
+                odds = pred.proba[g.strong_team.id]
+                T1_params = {'color': 'green', 'label': f'{odds:.0%}'}
+                T2_params = {'color': 'red'}
+
+            else:
+                odds = pred.proba[g.weak_team.id]
+                T2_params = {'color': 'green', 'label': f'{odds:.0%}'}
+                T1_params = {'color': 'red'}
+
+            graph.edge(T1, W, **T1_params)
+            graph.edge(T2, W, **T2_params)
+
+        graph.graph_attr['rankdir'] = 'LR'
+        graph.graph_attr['size'] = '30'
+
+        graph.node_attr.update(style='rounded')
+
+        return graph
+    
+    def update_results(new_results):
+        '''
+        method to update the results dict with a generic
+        slots: team_id dict
+        '''
+
+        new_results_team = \
+            {slot: Team(id=tid,
+                        name=self.t_dict.get(tid),
+                        seed=self.s_dict_rev.get(tid)
+                        )
+             for slot, tid in results}
+        self.results.update(update_dict)
+
     def reset_tournament(self):
         self.current_r = 0  # initiate at round 0 (play-in)
         self.results = {}  # results stored as slot: TeamID
         self._summary = {}
+
 
 
 class Game:
@@ -448,3 +556,71 @@ class Game:
             return win_id
         else:
             raise ValueError('Please choose style=random or chalk')
+
+def get_alt_game_id(game_id):
+    alt_game_id = game_id.split('_')
+    alt_game_id = '_'.join([alt_game_id[0],
+                            alt_game_id[2],
+                            alt_game_id[1]
+                            ])
+    return alt_game_id
+
+def get_round(t1_id, t2_id, s_dict_rev):
+    round_dict = gen_round_dict()
+    t1_seed = s_dict_rev.get(t1_id)
+    t2_seed = s_dict_rev.get(t2_id)
+
+    t1_seednum = int(t1_seed[1:3])
+    t2_seednum = int(t2_seed[1:3])
+
+    t1_reg = t1_seed[1]
+    t2_reg = t2_seed[1]
+
+    area_dict = {'W':'WX', 'X':'WX', 'Y':'YZ', 'Z':'YZ'}
+
+    t1_area = area_dict.get(t1_reg)
+    t2_area = area_dict.get(t2_reg)
+
+    if t1_area != t2_area:
+        return 6
+    elif t1_reg != t2_reg:
+        return 5
+    else:
+        matchup = f'{t2_seednum}v{t1_seednum}'
+        return round_dict.get(matchup)
+    raise 
+
+def gen_round_dict():
+    round_dict = {}
+
+    r4 = [[1,16,8,9,5,12,4,13,6,11,3,14,7,10,15,2]]
+    for seeds in r4:
+        for pair in itertools.combinations(seeds,2):
+            round_dict[str(pair[0])+'v'+str(pair[1])] = 4
+            round_dict[str(pair[1])+'v'+str(pair[0])] = 4
+
+
+    r3 = [[1,16,8,9,5,12,4,13],[6,11,3,14,7,10,15,2]]
+    for seeds in r3:
+        for pair in itertools.combinations(seeds,2):
+            round_dict[str(pair[0])+'v'+str(pair[1])] = 3
+            round_dict[str(pair[1])+'v'+str(pair[0])] = 3
+
+    r2 = [[1,16,8,9],[5,12,4,13],[6,11,3,14],[7,10,15,2]]
+    for seeds in r2:
+        for pair in itertools.combinations(seeds,2):
+            round_dict[str(pair[0])+'v'+str(pair[1])] = 2
+            round_dict[str(pair[1])+'v'+str(pair[0])] = 2
+
+    r1 = [[1,16],[8,9],[5,12],[4,13],[6,11],[3,14],[7,10],[15,2]]
+    for seeds in r1:
+        for pair in itertools.combinations(seeds,2):
+            round_dict[str(pair[0])+'v'+str(pair[1])] = 1
+            round_dict[str(pair[1])+'v'+str(pair[0])] = 1
+    
+    round_dict['11v11'] = 0
+    round_dict['12v12'] = 0
+    round_dict['13v13'] = 0
+    round_dict['14v14'] = 0
+    round_dict['16v16'] = 0
+    return round_dict
