@@ -212,14 +212,19 @@ class Tournament:
         if summary is None:
             summary = self.summary
         
+        columns = ['First Round', 'Round of 32', 'Sweet 16',
+                   'Elite 8', 'Final 4', 'Championship', 'Winner']
         summary_df = pd.DataFrame(summary)
-        summary_df.index = [f'{self.s_dict_rev[t]} - {self.submission.t_dict[t]}'
-                            for t in summary_df.index]
-        summary_df.columns = ['First Round', 'Round of 32', 'Sweet 16',
-                                'Elite 8', 'Final 4', 'Championship', 'Winner']
+        summary_df.columns = columns
+        summary_df.index.name = 'TeamID'
+        summary_df['Team'] = [f'{self.s_dict_rev[t]} - {self.submission.t_dict[t]}'
+                              for t in summary_df.index]
+        columns.insert(0,'Team')
+        summary_df = summary_df[columns]
+
         summary_df['First Round'].fillna(n_sim, inplace=True)
         summary_df.fillna(0, inplace=True)
-        summary_df.sort_values('Winner', ascending=False, inplace=True)
+        summary_df.sort_values(by=columns[::-1], ascending=False, inplace=True)
         return summary_df
                 
     def simulate_games(self, style):
