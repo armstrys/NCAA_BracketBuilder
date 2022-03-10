@@ -155,9 +155,9 @@ st.write(f'**{w_name} wins the tournament!**')
 
 if mw == 'W':
 
-    odds = tourney.get_odds(submission).values
+    odds = tourney.odds.values
     bracket_odds = int(1/np.cumprod(odds)[-1])
-    avglogloss = np.mean(tourney.get_losses(submission).values)
+    avglogloss = np.mean(tourney.losses.values)
     success = (odds > .5).sum()/len(odds)
 
     st.write('''
@@ -170,9 +170,9 @@ if mw == 'W':
                        b=int(success*100)))
 else:
 
-    odds = tourney.get_odds(submission).values[4:]
+    odds = tourney.odds.values[4:]
     bracket_odds = int(1/np.cumprod(odds)[-1])
-    avglogloss = np.mean(tourney.get_losses(submission).values[4:])
+    avglogloss = np.mean(tourney.losses.values[4:])
     success = (odds > .5).sum()/len(odds)
 
     st.write('''
@@ -197,8 +197,8 @@ def get_table_download_link():
     df = pd.DataFrame.from_dict({
                             'slot': results.keys(),
                             'winner': results.values(),
-                            'likelihood': tourney.get_odds(submission),
-                            'logloss': tourney.get_losses(submission)
+                            'likelihood': tourney.odds,
+                            'logloss': tourney.losses
                                 })
 
     csv = df.to_csv(index=False)

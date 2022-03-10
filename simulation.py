@@ -41,8 +41,8 @@ class Data:
     
     def get_round(self, t1_id, t2_id):
         return get_round(t1_id,
-                        t2_id,
-                        self.s_dict_rev)
+                         t2_id,
+                         self.s_dict_rev)
 
 
 class Team:
@@ -397,15 +397,26 @@ class Tournament:
         '''
 
         summary = {}
+        losses = []
 
         for i in range(int(n_sim)):
             self.reset_tournament()
             self.simulate_tournament('random', seed=i)
             summary = self.summarize_results(previous_summary=summary)
-        self._summary = summary
-        return self.summary_to_df(self._summary, n_sim=n_sim)
+            all_losses = self.losses
+            no_playin_losses = all_losses.loc[
+                all_losses.index.str.startswith('R')
+                ]
+            loss = no_playin_losses.mean()
+            losses.append(loss)
 
-    def get_losses(self, submission):
+        self._summary = summary
+        self.expected_losses = np.array(losses)
+        return self.summary_to_df(self._summary, n_sim=n_sim), \
+               self.expected_losses
+
+    @property
+    def losses(self):
         '''
         gets losses for all predictions based on the results
         dictionary
@@ -416,14 +427,15 @@ class Tournament:
             if w_id is None:
                 return np.nan()
             game_id = x.game_id
-            pred = submission.get_pred(game_id)
+            pred = self.submission.get_pred(game_id)
             logloss = pred.logloss[w_id]
             return logloss
 
         losses = self.games.apply(lambda x: logloss(x))
         return losses
 
-    def get_odds(self, submission):
+    @property
+    def odds(self):
         '''
         gets odds for all predictions based on the results
         dictionary
@@ -434,7 +446,7 @@ class Tournament:
             if w_id is None:
                 return np.nan()
             game_id = x.game_id
-            pred = submission.get_pred(game_id)
+            pred = self.submission.get_pred(game_id)
             proba = pred.proba[w_id]
             return proba
 
@@ -621,8 +633,8 @@ def get_round(t1_id, t2_id, s_dict_rev):
     t1_seednum = int(t1_seed[1:3])
     t2_seednum = int(t2_seed[1:3])
 
-    t1_reg = t1_seed[1]
-    t2_reg = t2_seed[1]
+    t1_reg = t1_seed[0]
+    t2_reg = t2_seed[0]
 
     area_dict = {'W':'WX', 'X':'WX', 'Y':'YZ', 'Z':'YZ'}
 
@@ -675,10 +687,10 @@ def gen_round_dict():
 
 historic_results = {
     2021: {
-        "W11":1417,
-        "W16":1411,
-        "X11":1179,
-        "X16":1313,
+        "W11":1417, # this is a play-in game
+        "W16":1411, # this is a play-in game
+        "X11":1179, # this is a play-in game
+        "X16":1313, # this is a play-in game
         "R1W1":1276,
         "R1W2":1104,
         "R1W3":1101,
@@ -690,7 +702,7 @@ historic_results = {
         "R1X1":1211,
         "R1X2":1234,
         "R1X3":1242,
-        "R1X4":1325,
+        "R1X4":1325, # this game didnt happen!
         "R1X5":1166,
         "R1X6":1425,
         "R1X7":1332,
