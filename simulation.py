@@ -102,6 +102,30 @@ class Submission:
         pred = self.predictions.loc[idx].squeeze()
         return pred
     
+    def get_pred_by_teams(self,
+                          season=2021,
+                          t1_id=None,
+                          t2_id=None,
+                          t1_name=None,
+                          t2_name=None,):
+        ids = False
+        if t1_id is not None and t2_id is not None:
+            ids = True
+        elif t1_name is not None and t2_name is not None:
+            if ids:
+                raise ValueError(
+                    'provide only names or ids of team'
+                    )
+            t1_id = self.t_dict_rev.get(t1_name)
+            t2_id = self.t_dict_rev.get(t2_name)
+        else:
+            raise ValueError(
+                'Please provide a name or ID for both team 1 and 2'
+            )
+        game_id = f'{season}_{t1_id}_{t2_id}'
+        pred = self.lookup_df.loc[game_id,'PredData']
+        return pred
+
     @property
     def predictions(self):
         return self.df['PredData']
@@ -122,6 +146,20 @@ class Submission:
                      'Team2ID','Pred','PredData']
 
         return full_df[col_order]
+    
+    @property
+    def lookup_df(self):
+        full_df = self.full_df.copy()
+        full_df_swap = full_df.copy()
+        full_df_swap.index = full_df_swap['PredData'].map(
+            lambda x: x.alt_game_id
+            )
+        full_df_swap.index.name = 'ID'
+        full_df_swap[['Team1ID','Team2ID']] = \
+            full_df[['Team2ID','Team1ID']].values
+        full_df_swap['Pred'] = 1 - full_df_swap['Pred']
+
+        return pd.concat([full_df, full_df_swap])
 
 
 class Prediction:
@@ -243,6 +281,7 @@ class Tournament:
                     tournament data class has both have the appropriate season.
                     ''')
         self.games = slots.apply(game_init, axis=1)
+        self.games.index = slots['Slot']
 
     @property
     def summary(self):
@@ -437,19 +476,26 @@ class Tournament:
 
         return graph
     
-    def update_results(new_results):
+    
+    def update_results(self, new_results):
         '''
         method to update the results dict with a generic
         slots: team_id dict
         '''
-
+        self.reset_tournament()
         new_results_team = \
-            {slot: Team(id=tid,
+            {slot: Team(t_id=tid,
                         name=self.t_dict.get(tid),
                         seed=self.s_dict_rev.get(tid)
                         )
-             for slot, tid in results}
-        self.results.update(update_dict)
+             for slot, tid in new_results.items()}
+        self.results.update(new_results_team)
+
+        self.advance_teams()
+        self._summary = {}
+    
+    def get_historic_results(self):
+        self.update_results(historic_results.get(self.season))
 
     def reset_tournament(self):
         self.current_r = 0  # initiate at round 0 (play-in)
@@ -510,6 +556,12 @@ class Game:
             return (f'{self.season} - {self.slot}: {self.strong_team.name} '
                     f'vs. {self.weak_team.name}')
 
+    @property
+    def game_id(self):
+        return '_'.join([str(self.season),
+                         str(self.strong_team.id),
+                         str(self.weak_team.id)])
+
     def add_teams(self, results):
         '''
         Checks all results and updates games if results exist.
@@ -537,10 +589,6 @@ class Game:
 
         if self.team_is_missing():
             raise ValueError('At least one team does not exist')
-
-        self.game_id = '_'.join([str(self.season),
-                                 str(self.strong_team.id),
-                                 str(self.weak_team.id)])
 
         if style == 'chalk':
             win_id = (
@@ -624,3 +672,75 @@ def gen_round_dict():
     round_dict['14v14'] = 0
     round_dict['16v16'] = 0
     return round_dict
+
+historic_results = {
+    2021: {
+        "W11":1417,
+        "W16":1411,
+        "X11":1179,
+        "X16":1313,
+        "R1W1":1276,
+        "R1W2":1104,
+        "R1W3":1101,
+        "R1W4":1199,
+        "R1W5":1160,
+        "R1W6":1417,
+        "R1W7":1268,
+        "R1W8":1261,
+        "R1X1":1211,
+        "R1X2":1234,
+        "R1X3":1242,
+        "R1X4":1325,
+        "R1X5":1166,
+        "R1X6":1425,
+        "R1X7":1332,
+        "R1X8":1328,
+        "R1Y1":1228,
+        "R1Y2":1222,
+        "R1Y3":1452,
+        "R1Y4":1329,
+        "R1Y5":1333,
+        "R1Y6":1393,
+        "R1Y7":1353,
+        "R1Y8":1260,
+        "R1Z1":1124,
+        "R1Z2":1331,
+        "R1Z3":1116,
+        "R1Z4":1317,
+        "R1Z5":1437,
+        "R1Z6":1403,
+        "R1Z7":1196,
+        "R1Z8":1458,
+        "R2W1":1276,
+        "R2W2":1104,
+        "R2W3":1417,
+        "R2W4":1199,
+        "R2X1":1211,
+        "R2X2":1332,
+        "R2X3":1425,
+        "R2X4":1166,
+        "R2Y1":1260,
+        "R2Y2":1222,
+        "R2Y3":1393,
+        "R2Y4":1333,
+        "R2Z1":1124,
+        "R2Z2":1331,
+        "R2Z3":1116,
+        "R2Z4":1437,
+        "R3W1":1276,
+        "R3W2":1417,
+        "R3X1":1211,
+        "R3X2":1425,
+        "R3Y1":1333,
+        "R3Y2":1222,
+        "R3Z1":1124,
+        "R3Z2":1116,
+        "R4W1":1417,
+        "R4X1":1211,
+        "R4Y1":1222,
+        "R4Z1":1124,
+        "R5WX":1211,
+        "R5YZ":1124,
+        "R6CH":1124,
+    }
+}

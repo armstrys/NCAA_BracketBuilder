@@ -55,7 +55,7 @@ mw = (st.sidebar.radio(label='Men\'s or Women\'s submission?',
 ncaa_data = Data(mw=mw, dir=input_dir)
 try:
     sub_df = pd.read_csv(sub_file)
-    submission = Submission(sub_df=sub_df, files=ncaa_data)
+    submission = Submission(sub_df=sub_df, data=ncaa_data)
 except ValueError:
     st.warning('''
                Please add a valid solution file and
