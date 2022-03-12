@@ -157,7 +157,7 @@ if mw == 'W':
 
     odds = tourney.odds.values
     bracket_odds = int(1/np.cumprod(odds)[-1])
-    avglogloss = np.mean(tourney.losses.values)
+    avglogloss = np.mean(tourney.get_losses(kaggle=True).values)
     success = (odds > .5).sum()/len(odds)
 
     st.write('''
@@ -172,7 +172,7 @@ else:
 
     odds = tourney.odds.values[4:]
     bracket_odds = int(1/np.cumprod(odds)[-1])
-    avglogloss = np.mean(tourney.losses.values[4:])
+    avglogloss = np.mean(tourney.get_losses(kaggle=True))
     success = (odds > .5).sum()/len(odds)
 
     st.write('''

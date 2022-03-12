@@ -418,11 +418,8 @@ class Tournament:
             self.reset_tournament()
             self.simulate_tournament('random', seed=i)
             summary = self.summarize_results(previous_summary=summary)
-            all_losses = self.losses
-            no_playin_losses = all_losses.loc[
-                all_losses.index.str.startswith('R')
-                ]
-            loss = no_playin_losses.mean()
+            losses = self.get_losses(kaggle=True)
+            loss = losses.mean()
             losses.append(loss)
 
         self._summary = summary
@@ -430,11 +427,12 @@ class Tournament:
         return self.summary_to_df(self._summary, n_sim=n_sim), \
                self.expected_losses
 
-    @property
-    def losses(self):
+    def get_losses(self, kaggle=True):
         '''
         gets losses for all predictions based on the results
         dictionary
+        
+        Kaggle=True to exlude play-ins
         '''
 
         def logloss(x):
@@ -447,6 +445,10 @@ class Tournament:
             return logloss
 
         losses = self.games.apply(lambda x: logloss(x))
+        losses = losses.loc[
+                losses.index.str.startswith('R')
+                ]
+
         return losses
 
     @property
