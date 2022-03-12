@@ -412,7 +412,7 @@ class Tournament:
         '''
 
         summary = {}
-        losses = []
+        expected_losses = []
 
         for i in range(int(n_sim)):
             self.reset_tournament()
@@ -420,10 +420,10 @@ class Tournament:
             summary = self.summarize_results(previous_summary=summary)
             losses = self.get_losses(kaggle=True)
             loss = losses.mean()
-            losses.append(loss)
+            expected_losses.append(loss)
 
         self._summary = summary
-        self.expected_losses = np.array(losses)
+        self.expected_losses = np.array(expected_losses)
         return self.summary_to_df(self._summary, n_sim=n_sim), \
                self.expected_losses
 
