@@ -32,18 +32,33 @@ class Data:
         self.teams = pd.read_csv(path/(f'{self.mw}Teams.csv'))
         self.slots = pd.read_csv(path/(f'{self.mw}NCAATourneySlots.csv'))
         self.seeds = pd.read_csv(path/(f'{self.mw}NCAATourneySeeds.csv'))
+        self.seedyear_dict, self.seedyear_dict_rev = \
+            self.build_seed_dicts()
         self.t_dict = (self.teams.set_index('TeamID')['TeamName']
                                   .to_dict())
-        self.s_dict = (self.seeds.set_index('Seed')['TeamID']
-                                 .to_dict())
         self.t_dict_rev = {v: k for k, v in self.t_dict.items()}
-        self.s_dict_rev = {v: k for k, v in self.s_dict.items()}
-    
-    def get_round(self, t1_id, t2_id):
-        return get_round(t1_id,
-                         t2_id,
-                         self.s_dict_rev)
 
+    def build_seed_dicts(self):
+        seedyear_dict = {}
+        seedyear_dict_rev = {}
+
+        for s in self.seeds['Season'].unique():
+            seed_data = self.seeds.query('Season == @s')
+            s_dict = (seed_data.set_index('Seed')['TeamID']
+                               .to_dict())
+            s_dict_rev = {v: k for k, v in s_dict.items()}
+            seedyear_dict.update({s: s_dict})
+            seedyear_dict_rev.update({s: s_dict_rev})
+        
+        return seedyear_dict, seedyear_dict_rev
+            
+
+    
+    def get_round(self, season, t1_id, t2_id):
+        return get_round(season,
+                         t1_id,
+                         t2_id,
+                         self.seedyear_dict_rev)
 
 class Team:
     '''
@@ -68,19 +83,31 @@ class Submission:
 
     def __init__(self, sub_df, data):
 
-        self.df = sub_df.copy()
 
-        self.seasons = self.df['ID'].apply(lambda x: int(x[0:4])).unique()
+        sub_df[['Season', 'Team1ID', 'Team2ID']] = \
+            sub_df['ID'].str.split('_', expand=True)
+        sub_df[['Season', 'Team1ID', 'Team2ID']] = \
+            sub_df[['Season', 'Team1ID', 'Team2ID']].astype(int)
+        sub_df['Round'] = \
+            sub_df.apply(
+                lambda row:
+                data.get_round(row['Season'],
+                               row['Team1ID'],
+                               row['Team2ID']),
+                axis=1
+            )
+            
+        self.seasons = sub_df['Season'].unique().tolist()
+        self._df = sub_df.copy()
         self.t_dict = data.t_dict
-        self.s_dict = data.s_dict
         self.t_dict_rev = data.t_dict_rev
-        self.s_dict_rev = data.s_dict_rev
 
         def prediction_init(row):
-            pred = Prediction(row, self.t_dict, self.s_dict)
+            s_dict = data.seedyear_dict[row['Season']]
+            pred = Prediction(row, self.t_dict, s_dict)
             return pred
 
-        self.df['PredData'] = self.df.apply(prediction_init, axis=1)
+        self._df['PredData'] = self._df.apply(prediction_init, axis=1)
 
     def get_pred(self, game_id=None):
         '''
@@ -131,35 +158,27 @@ class Submission:
         return self.df['PredData']
 
     @property
-    def full_df(self):
-        full_df = self.df.copy()
-        full_df['Season'] = \
-            full_df['PredData'].map(lambda x: x.season)
-        full_df['Round'] = \
-            full_df['PredData'].map(lambda x: x.round)
-        full_df['Team1ID'] = \
-            full_df['PredData'].map(lambda x: x.t1_id)
-        full_df['Team2ID'] = \
-            full_df['PredData'].map(lambda x: x.t2_id)
-        full_df.set_index('ID', inplace=True)
+    def df(self):
+        df = self._df.copy()
+        df.set_index('ID', inplace=True)
         col_order = ['Season','Round','Team1ID',
                      'Team2ID','Pred','PredData']
 
-        return full_df[col_order]
+        return df[col_order]
     
     @property
     def lookup_df(self):
-        full_df = self.full_df.copy()
-        full_df_swap = full_df.copy()
-        full_df_swap.index = full_df_swap['PredData'].map(
+        df = self.df.copy()
+        df_swap = df.copy()
+        df_swap.index = df_swap['PredData'].map(
             lambda x: x.alt_game_id
             )
-        full_df_swap.index.name = 'ID'
-        full_df_swap[['Team1ID','Team2ID']] = \
-            full_df[['Team2ID','Team1ID']].values
-        full_df_swap['Pred'] = 1 - full_df_swap['Pred']
+        df_swap.index.name = 'ID'
+        df_swap[['Team1ID','Team2ID']] = \
+            df[['Team2ID','Team1ID']].values
+        df_swap['Pred'] = 1 - df_swap['Pred']
 
-        return pd.concat([full_df, full_df_swap])
+        return pd.concat([df, df_swap])
 
 
 class Prediction:
@@ -173,9 +192,7 @@ class Prediction:
 
         self.data = sub_row.copy()
         self.t_dict = t_dict
-        self.t_dict_rev = {v: k for k, v in t_dict.items()}
         self.s_dict = s_dict
-        self.s_dict_rev = {v: k for k, v in s_dict.items()}
         self.game_id = self.data['ID']
         self.season, self.t1_id, self.t2_id = (
             [int(x) for x in self.game_id.split('_')]
@@ -223,9 +240,7 @@ class Prediction:
     
     @property
     def round(self):
-        return get_round(self.t1_id,
-                         self.t2_id,
-                         self.s_dict_rev)
+        return self.get_round
 
     def get_favored(self):
         if self.proba[self.t1_id] > 0.5:
@@ -256,8 +271,8 @@ class Tournament:
 
         # Create seed: teamID dictionary
         self.t_dict = data.t_dict
-        self.s_dict = data.s_dict
-        self.s_dict_rev = data.s_dict_rev
+        self.s_dict = data.seedyear_dict[self.season]
+        self.s_dict_rev = data.seedyear_dict_rev[self.season]
         self._summary = {}
 
         # Only men's file has differing slots by year - select the year
@@ -625,10 +640,12 @@ def get_alt_game_id(game_id):
                             ])
     return alt_game_id
 
-def get_round(t1_id, t2_id, s_dict_rev):
+def get_round(season, t1_id, t2_id, seedyear_dict_rev):
     round_dict = gen_round_dict()
-    t1_seed = s_dict_rev.get(t1_id)
-    t2_seed = s_dict_rev.get(t2_id)
+
+    s_dict_rev = seedyear_dict_rev[season]
+    t1_seed = s_dict_rev[t1_id]
+    t2_seed = s_dict_rev[t2_id]
 
     t1_seednum = int(t1_seed[1:3])
     t2_seednum = int(t2_seed[1:3])
