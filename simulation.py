@@ -16,6 +16,7 @@ round_names = {
     6: 'Championship'
 }
 
+
 class Data:
     '''
     Loads pertinent data to forward model NCAA tournament
@@ -35,7 +36,7 @@ class Data:
         self.seedyear_dict, self.seedyear_dict_rev = \
             self.build_seed_dicts()
         self.t_dict = (self.teams.set_index('TeamID')['TeamName']
-                                  .to_dict())
+                                 .to_dict())
         self.t_dict_rev = {v: k for k, v in self.t_dict.items()}
 
     def build_seed_dicts(self):
@@ -49,16 +50,14 @@ class Data:
             s_dict_rev = {v: k for k, v in s_dict.items()}
             seedyear_dict.update({s: s_dict})
             seedyear_dict_rev.update({s: s_dict_rev})
-        
         return seedyear_dict, seedyear_dict_rev
-            
 
-    
     def get_round(self, season, t1_id, t2_id):
         return get_round(season,
                          t1_id,
                          t2_id,
                          self.seedyear_dict_rev)
+
 
 class Team:
     '''
@@ -82,8 +81,6 @@ class Submission:
     '''
 
     def __init__(self, sub_df, data):
-
-
         sub_df[['Season', 'Team1ID', 'Team2ID']] = \
             sub_df['ID'].str.split('_', expand=True)
         sub_df[['Season', 'Team1ID', 'Team2ID']] = \
@@ -96,7 +93,7 @@ class Submission:
                                row['Team2ID']),
                 axis=1
             )
-            
+
         self.seasons = sub_df['Season'].unique().tolist()
         self._df = sub_df.copy()
         self.t_dict = data.t_dict
@@ -104,7 +101,12 @@ class Submission:
 
         def prediction_init(row):
             s_dict = data.seedyear_dict[row['Season']]
-            pred = Prediction(row, self.t_dict, s_dict)
+            pred = Prediction(row['Season'],
+                              row['Team1ID'],
+                              row['Team2ID'],
+                              row['Pred'],
+                              self.t_dict,
+                              s_dict)
             return pred
 
         self._df['PredData'] = self._df.apply(prediction_init, axis=1)
@@ -128,7 +130,7 @@ class Submission:
 
         pred = self.predictions.loc[idx].squeeze()
         return pred
-    
+
     def get_pred_by_teams(self,
                           season=2021,
                           t1_id=None,
@@ -150,7 +152,7 @@ class Submission:
                 'Please provide a name or ID for both team 1 and 2'
             )
         game_id = f'{season}_{t1_id}_{t2_id}'
-        pred = self.lookup_df.loc[game_id,'PredData']
+        pred = self.lookup_df.loc[game_id, 'PredData']
         return pred
 
     @property
@@ -161,11 +163,11 @@ class Submission:
     def df(self):
         df = self._df.copy()
         df.set_index('ID', inplace=True)
-        col_order = ['Season','Round','Team1ID',
-                     'Team2ID','Pred','PredData']
+        col_order = ['Season', 'Round', 'Team1ID',
+                     'Team2ID', 'Pred', 'PredData']
 
         return df[col_order]
-    
+
     @property
     def lookup_df(self):
         df = self.df.copy()
@@ -174,8 +176,8 @@ class Submission:
             lambda x: x.alt_game_id
             )
         df_swap.index.name = 'ID'
-        df_swap[['Team1ID','Team2ID']] = \
-            df[['Team2ID','Team1ID']].values
+        df_swap[['Team1ID', 'Team2ID']] = \
+            df[['Team2ID', 'Team1ID']].values
         df_swap['Pred'] = 1 - df_swap['Pred']
 
         return pd.concat([df, df_swap])
@@ -188,16 +190,15 @@ class Prediction:
     favored or a random sample using the odds.
     '''
 
-    def __init__(self, sub_row, t_dict, s_dict):
+    def __init__(self, season, t1_id, t2_id, pred, t_dict, s_dict):
 
-        self.data = sub_row.copy()
         self.t_dict = t_dict
         self.s_dict = s_dict
-        self.game_id = self.data['ID']
-        self.season, self.t1_id, self.t2_id = (
-            [int(x) for x in self.game_id.split('_')]
-        )
-        self.pred = self.data['Pred']
+        self.game_id = f'{season}_{t1_id}_{t2_id}'
+        self.season = season
+        self.t1_id = t1_id
+        self.t2_id = t2_id
+        self.pred = pred
 
     def __repr__(self):
         if self.proba[self.t1_id] > .5:
@@ -209,23 +210,23 @@ class Prediction:
             win_name = self.t2_name
             lose_name = self.t1_name
 
-        return (f'{proba:.1%} chance of ' \
+        return (f'{proba:.1%} chance of '
                 f'{win_name} beating {lose_name}')
 
     @property
     def t1_name(self):
         return self.t_dict[self.t1_id]
-    
+
     @property
     def t2_name(self):
         return self.t_dict[self.t2_id]
-    
+
     @property
     def alt_game_id(self):
         return get_alt_game_id(self.game_id)
 
     @property
-    def proba(self): 
+    def proba(self):
         return {
             self.t1_id: self.pred,
             self.t2_id: 1 - self.pred
@@ -237,7 +238,7 @@ class Prediction:
             self.t1_id: -np.log(self.pred),
             self.t2_id: -np.log(1 - self.pred)
         }
-    
+
     @property
     def round(self):
         return self.get_round
@@ -254,6 +255,7 @@ class Prediction:
         else:
             return self.t2_id
 
+
 class Tournament:
 
     def __init__(self, data, submission, season):
@@ -265,6 +267,7 @@ class Tournament:
 
         # Add metadata to be called by class
         self.submission = submission  # submission class to get preds
+        self.mw =data.mw
         self.season = season  # season year
         self.current_r = 0  # initiate at round 0 (play-in)
         self.results = {}  # results stored as slot: TeamID
@@ -303,7 +306,7 @@ class Tournament:
         if len(self._summary) == 0:
             self._summary = self.summarize_results()
         return self._summary
-    
+
     def summarize_results(self, previous_summary=None):
         if previous_summary is not None:
             self._summary = previous_summary
@@ -324,21 +327,29 @@ class Tournament:
 
         if summary is None:
             summary = self.summary
-        
+
         columns = [round_names.get(k) for k in range(7)]
         summary_df = pd.DataFrame(summary)
         summary_df.columns = columns
         summary_df.index.name = 'TeamID'
-        summary_df['Team'] = [f'{self.s_dict_rev[t]} - {self.submission.t_dict[t]}'
+        all_teams = list(self.s_dict.values())
+        missing_teams = list(set(all_teams) - set(summary_df.index))
+        if len(missing_teams) > 0:
+            missing_teams_df = pd.DataFrame(np.nan,
+                                            index=missing_teams,
+                                            columns=summary_df.columns)
+            summary_df = pd.concat([summary_df, missing_teams_df])
+        summary_df['Team'] = [f'{self.s_dict_rev[t]} - '
+                              f'{self.submission.t_dict[t]}'
                               for t in summary_df.index]
-        columns.insert(0,'Team')
+        columns.insert(0, 'Team')
         summary_df = summary_df[columns]
 
         summary_df['First Round'].fillna(n_sim, inplace=True)
         summary_df.fillna(0, inplace=True)
         summary_df.sort_values(by=columns[::-1], ascending=False, inplace=True)
         return summary_df
-                
+
     def simulate_games(self, style):
         '''
         This function uses each game class from a specific round
@@ -425,13 +436,13 @@ class Tournament:
         self._summary = summary
         self.expected_losses = np.array(expected_losses)
         return self.summary_to_df(self._summary, n_sim=n_sim), \
-               self.expected_losses
+            self.expected_losses
 
     def get_losses(self, kaggle=True):
         '''
         gets losses for all predictions based on the results
         dictionary
-        
+
         Kaggle=True to exlude play-ins
         '''
 
@@ -483,8 +494,9 @@ class Tournament:
             W = 'R' + f'{g.r+1} {self.results[g.slot].seed}' \
                 f'-{self.results[g.slot].name}'
 
-            pred = self.submission.get_pred(f'{self.season}_' +
-                                    f'{g.strong_team.id}_{g.weak_team.id}')
+            pred = self.submission.get_pred(f'{self.season}_'
+                                            f'{g.strong_team.id}_'
+                                            f'{g.weak_team.id}')
             if g.strong_team.name == self.results[g.slot].name:
                 odds = pred.proba[g.strong_team.id]
                 T1_params = {'color': 'green', 'label': f'{odds:.0%}'}
@@ -504,8 +516,7 @@ class Tournament:
         graph.node_attr.update(style='rounded')
 
         return graph
-    
-    
+
     def update_results(self, new_results):
         '''
         method to update the results dict with a generic
@@ -522,15 +533,14 @@ class Tournament:
 
         self.advance_teams()
         self._summary = {}
-    
+
     def get_historic_results(self):
-        self.update_results(historic_results.get(self.season))
+        self.update_results(historic_results[self.mw][self.season])
 
     def reset_tournament(self):
         self.current_r = 0  # initiate at round 0 (play-in)
         self.results = {}  # results stored as slot: TeamID
         self._summary = {}
-
 
 
 class Game:
@@ -634,6 +644,7 @@ class Game:
         else:
             raise ValueError('Please choose style=random or chalk')
 
+
 def get_alt_game_id(game_id):
     alt_game_id = game_id.split('_')
     alt_game_id = '_'.join([alt_game_id[0],
@@ -641,6 +652,7 @@ def get_alt_game_id(game_id):
                             alt_game_id[1]
                             ])
     return alt_game_id
+
 
 def get_round(season, t1_id, t2_id, seedyear_dict_rev):
     round_dict = gen_round_dict()
@@ -696,7 +708,7 @@ def gen_round_dict():
         for pair in itertools.combinations(seeds,2):
             round_dict[str(pair[0])+'v'+str(pair[1])] = 1
             round_dict[str(pair[1])+'v'+str(pair[0])] = 1
-    
+
     round_dict['11v11'] = 0
     round_dict['12v12'] = 0
     round_dict['13v13'] = 0
@@ -705,73 +717,352 @@ def gen_round_dict():
     return round_dict
 
 historic_results = {
-    2021: {
-        "W11":1417, # this is a play-in game
-        "W16":1411, # this is a play-in game
-        "X11":1179, # this is a play-in game
-        "X16":1313, # this is a play-in game
-        "R1W1":1276,
-        "R1W2":1104,
-        "R1W3":1101,
-        "R1W4":1199,
-        "R1W5":1160,
-        "R1W6":1417,
-        "R1W7":1268,
-        "R1W8":1261,
-        "R1X1":1211,
-        "R1X2":1234,
-        "R1X3":1242,
-        "R1X4":1325, # this game didnt happen!
-        "R1X5":1166,
-        "R1X6":1425,
-        "R1X7":1332,
-        "R1X8":1328,
-        "R1Y1":1228,
-        "R1Y2":1222,
-        "R1Y3":1452,
-        "R1Y4":1329,
-        "R1Y5":1333,
-        "R1Y6":1393,
-        "R1Y7":1353,
-        "R1Y8":1260,
-        "R1Z1":1124,
-        "R1Z2":1331,
-        "R1Z3":1116,
-        "R1Z4":1317,
-        "R1Z5":1437,
-        "R1Z6":1403,
-        "R1Z7":1196,
-        "R1Z8":1458,
-        "R2W1":1276,
-        "R2W2":1104,
-        "R2W3":1417,
-        "R2W4":1199,
-        "R2X1":1211,
-        "R2X2":1332,
-        "R2X3":1425,
-        "R2X4":1166,
-        "R2Y1":1260,
-        "R2Y2":1222,
-        "R2Y3":1393,
-        "R2Y4":1333,
-        "R2Z1":1124,
-        "R2Z2":1331,
-        "R2Z3":1116,
-        "R2Z4":1437,
-        "R3W1":1276,
-        "R3W2":1417,
-        "R3X1":1211,
-        "R3X2":1425,
-        "R3Y1":1333,
-        "R3Y2":1222,
-        "R3Z1":1124,
-        "R3Z2":1116,
-        "R4W1":1417,
-        "R4X1":1211,
-        "R4Y1":1222,
-        "R4Z1":1124,
-        "R5WX":1211,
-        "R5YZ":1124,
-        "R6CH":1124,
-    }
+    'M': {
+            2016: {
+            "W11":1276,
+            "W16":1195,
+            "Y11":1455,
+            "Z16":1221,
+            "R1W1":1314,
+            "R1W2":1462,
+            "R1W3":1372,
+            "R1W4":1246,
+            "R1W5":1231,
+            "R1W6":1323,
+            "R1W7":1458,
+            "R1W8":1344,
+            "R1X1":1438,
+            "R1X2":1292,
+            "R1X3":1428,
+            "R1X4":1235,
+            "R1X5":1114,
+            "R1X6":1211,
+            "R1X7":1393,
+            "R1X8":1139,
+            "R1Y1":1242,
+            "R1Y2":1437,
+            "R1Y3":1274,
+            "R1Y4":1218,
+            "R1Y5":1268,
+            "R1Y6":1455,
+            "R1Y7":1234,
+            "R1Y8":1163,
+            "R1Z1":1332,
+            "R1Z2":1328,
+            "R1Z3":1401,
+            "R1Z4":1181,
+            "R1Z5":1463,
+            "R1Z6":1320,
+            "R1Z7":1433,
+            "R1Z8":1386,
+            "R2W1":1314,
+            "R2W2":1458,
+            "R2W3":1323,
+            "R2W4":1231,
+            "R2X1":1438,
+            "R2X2":1393,
+            "R2X3":1211,
+            "R2X4":1235,
+            "R2Y1":1242,
+            "R2Y2":1437,
+            "R2Y3":1274,
+            "R2Y4":1268,
+            "R2Z1":1332,
+            "R2Z2":1328,
+            "R2Z3":1401,
+            "R2Z4":1181,
+            "R3W1":1314,
+            "R3W2":1323,
+            "R3X1":1438,
+            "R3X2":1393,
+            "R3Y1":1242,
+            "R3Y2":1437,
+            "R3Z1":1332,
+            "R3Z2":1328,
+            "R4W1":1314,
+            "R4X1":1393,
+            "R4Y1":1437,
+            "R4Z1":1328,
+            "R5WX":1314,
+            "R5YZ":1437,
+            "R6CH":1437,
+        },
+        2017: {
+            "W11":1425,
+            "W16":1291,
+            "Y16":1413,
+            "Z11":1243,
+            "R1W1":1437,
+            "R1W2":1181,
+            "R1W3":1124,
+            "R1W4":1196,
+            "R1W5":1438,
+            "R1W6":1425,
+            "R1W7":1376,
+            "R1W8":1458,
+            "R1X1":1211,
+            "R1X2":1112,
+            "R1X3":1199,
+            "R1X4":1452,
+            "R1X5":1323,
+            "R1X6":1462,
+            "R1X7":1388,
+            "R1X8":1321,
+            "R1Y1":1242,
+            "R1Y2":1257,
+            "R1Y3":1332,
+            "R1Y4":1345,
+            "R1Y5":1235,
+            "R1Y6":1348,
+            "R1Y7":1276,
+            "R1Y8":1277,
+            "R1Z1":1314,
+            "R1Z2":1246,
+            "R1Z3":1417,
+            "R1Z4":1139,
+            "R1Z5":1292,
+            "R1Z6":1153,
+            "R1Z7":1455,
+            "R1Z8":1116,
+            "R2W1":1458,
+            "R2W2":1376,
+            "R2W3":1124,
+            "R2W4":1196,
+            "R2X1":1211,
+            "R2X2":1112,
+            "R2X3":1462,
+            "R2X4":1452,
+            "R2Y1":1242,
+            "R2Y2":1276,
+            "R2Y3":1332,
+            "R2Y4":1345,
+            "R2Z1":1314,
+            "R2Z2":1246,
+            "R2Z3":1417,
+            "R2Z4":1139,
+            "R3W1":1196,
+            "R3W2":1376,
+            "R3X1":1211,
+            "R3X2":1462,
+            "R3Y1":1242,
+            "R3Y2":1332,
+            "R3Z1":1314,
+            "R3Z2":1246,
+            "R4W1":1376,
+            "R4X1":1211,
+            "R4Y1":1332,
+            "R4Z1":1314,
+            "R5WX":1211,
+            "R5YZ":1314,
+            "R6CH":1314
+        },
+        2018: {
+            "W11":1382,
+            "W16":1347,
+            "X11":1393,
+            "Z16":1411,
+            "R1W1":1437,
+            "R1W2":1345,
+            "R1W3":1403,
+            "R1W4":1267,
+            "R1W5":1452,
+            "R1W6":1196,
+            "R1W7":1139,
+            "R1W8":1104,
+            "R1X1":1242,
+            "R1X2":1181,
+            "R1X3":1277,
+            "R1X4":1120,
+            "R1X5":1155,
+            "R1X6":1393,
+            "R1X7":1348,
+            "R1X8":1371,
+            "R1Y1":1420,
+            "R1Y2":1153,
+            "R1Y3":1397,
+            "R1Y4":1138,
+            "R1Y5":1246,
+            "R1Y6":1260,
+            "R1Y7":1305,
+            "R1Y8":1243,
+            "R1Z1":1462,
+            "R1Z2":1314,
+            "R1Z3":1276,
+            "R1Z4":1211,
+            "R1Z5":1326,
+            "R1Z6":1222,
+            "R1Z7":1401,
+            "R1Z8":1199,
+            "R2W1":1437,
+            "R2W2":1345,
+            "R2W3":1403,
+            "R2W4":1452,
+            "R2X1":1242,
+            "R2X2":1181,
+            "R2X3":1393,
+            "R2X4":1155,
+            "R2Y1":1243,
+            "R2Y2":1305,
+            "R2Y3":1260,
+            "R2Y4":1246,
+            "R2Z1":1199,
+            "R2Z2":1401,
+            "R2Z3":1276,
+            "R2Z4":1211,
+            "R3W1":1437,
+            "R3W2":1403,
+            "R3X1":1242,
+            "R3X2":1181,
+            "R3Y1":1243,
+            "R3Y2":1260,
+            "R3Z1":1199,
+            "R3Z2":1276,
+            "R4W1":1437,
+            "R4X1":1242,
+            "R4Y1":1260,
+            "R4Z1":1276,
+            "R5WX":1437,
+            "R5YZ":1276,
+            "R6CH":1437
+        },
+        2019: {
+            "W11":1125,
+            "W16":1295,
+            "X11":1113,
+            "X16":1192,
+            "R1W1":1181,
+            "R1W2":1277,
+            "R1W3":1261,
+            "R1W4":1439,
+            "R1W5":1251,
+            "R1W6":1268,
+            "R1W7":1278,
+            "R1W8":1416,
+            "R1X1":1211,
+            "R1X2":1276,
+            "R1X3":1403,
+            "R1X4":1199,
+            "R1X5":1293,
+            "R1X6":1138,
+            "R1X7":1196,
+            "R1X8":1124,
+            "R1Y1":1314,
+            "R1Y2":1246,
+            "R1Y3":1222,
+            "R1Y4":1242,
+            "R1Y5":1120,
+            "R1Y6":1326,
+            "R1Y7":1459,
+            "R1Y8":1449,
+            "R1Z1":1438,
+            "R1Z2":1397,
+            "R1Z3":1345,
+            "R1Z4":1414,
+            "R1Z5":1332,
+            "R1Z6":1437,
+            "R1Z7":1234,
+            "R1Z8":1328,
+            "R2W1":1181,
+            "R2W2":1277,
+            "R2W3":1261,
+            "R2W4":1439,
+            "R2X1":1211,
+            "R2X2":1276,
+            "R2X3":1403,
+            "R2X4":1199,
+            "R2Y1":1314,
+            "R2Y2":1246,
+            "R2Y3":1222,
+            "R2Y4":1120,
+            "R2Z1":1438,
+            "R2Z2":1397,
+            "R2Z3":1345,
+            "R2Z4":1332,
+            "R3W1":1181,
+            "R3W2":1277,
+            "R3X1":1211,
+            "R3X2":1403,
+            "R3Y1":1120,
+            "R3Y2":1246,
+            "R3Z1":1438,
+            "R3Z2":1345,
+            "R4W1":1277,
+            "R4X1":1403,
+            "R4Y1":1120,
+            "R4Z1":1438,
+            "R5WX":1403,
+            "R5YZ":1438,
+            "R6CH":1438
+        },
+        2021: {
+            "W11":1417, # this is a play-in game
+            "W16":1411, # this is a play-in game
+            "X11":1179, # this is a play-in game
+            "X16":1313, # this is a play-in game
+            "R1W1":1276,
+            "R1W2":1104,
+            "R1W3":1101,
+            "R1W4":1199,
+            "R1W5":1160,
+            "R1W6":1417,
+            "R1W7":1268,
+            "R1W8":1261,
+            "R1X1":1211,
+            "R1X2":1234,
+            "R1X3":1242,
+            "R1X4":1325, # this game didnt happen!
+            "R1X5":1166,
+            "R1X6":1425,
+            "R1X7":1332,
+            "R1X8":1328,
+            "R1Y1":1228,
+            "R1Y2":1222,
+            "R1Y3":1452,
+            "R1Y4":1329,
+            "R1Y5":1333,
+            "R1Y6":1393,
+            "R1Y7":1353,
+            "R1Y8":1260,
+            "R1Z1":1124,
+            "R1Z2":1331,
+            "R1Z3":1116,
+            "R1Z4":1317,
+            "R1Z5":1437,
+            "R1Z6":1403,
+            "R1Z7":1196,
+            "R1Z8":1458,
+            "R2W1":1276,
+            "R2W2":1104,
+            "R2W3":1417,
+            "R2W4":1199,
+            "R2X1":1211,
+            "R2X2":1332,
+            "R2X3":1425,
+            "R2X4":1166,
+            "R2Y1":1260,
+            "R2Y2":1222,
+            "R2Y3":1393,
+            "R2Y4":1333,
+            "R2Z1":1124,
+            "R2Z2":1331,
+            "R2Z3":1116,
+            "R2Z4":1437,
+            "R3W1":1276,
+            "R3W2":1417,
+            "R3X1":1211,
+            "R3X2":1425,
+            "R3Y1":1333,
+            "R3Y2":1222,
+            "R3Z1":1124,
+            "R3Z2":1116,
+            "R4W1":1417,
+            "R4X1":1211,
+            "R4Y1":1222,
+            "R4Z1":1124,
+            "R5WX":1211,
+            "R5YZ":1124,
+            "R6CH":1124,
+        }
+    },
+    'W': {}
 }

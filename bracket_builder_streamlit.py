@@ -198,7 +198,7 @@ def get_table_download_link():
                             'slot': results.keys(),
                             'winner': results.values(),
                             'likelihood': tourney.odds,
-                            'logloss': tourney.losses
+                            'logloss': tourney.get_losses(kaggle=True)
                                 })
 
     csv = df.to_csv(index=False)
@@ -223,3 +223,7 @@ if st.checkbox('Show graphical representation - will slow simulations'):
 
 if st.checkbox('Show Game Result Dictionary with IDs'):
     st.write({slot: t.id for slot, t in tourney.results.items()})
+
+
+if st.sidebar.button('set historical results'):
+    tourney.get_historic_results()
