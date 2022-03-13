@@ -267,7 +267,7 @@ class Tournament:
 
         # Add metadata to be called by class
         self.submission = submission  # submission class to get preds
-        self.mw =data.mw
+        self.mw = data.mw
         self.season = season  # season year
         self.current_r = 0  # initiate at round 0 (play-in)
         self.results = {}  # results stored as slot: TeamID
@@ -302,6 +302,10 @@ class Tournament:
         self.games.index = slots['Slot']
 
     @property
+    def n_teams(self):
+        return len(self.s_dict)
+
+    @property
     def summary(self):
         if len(self._summary) == 0:
             self._summary = self.summarize_results()
@@ -329,6 +333,8 @@ class Tournament:
             summary = self.summary
 
         columns = [round_names.get(k) for k in range(7)]
+        if self.mw == 'W':
+            columns = columns[1:]
         summary_df = pd.DataFrame(summary)
         summary_df.columns = columns
         summary_df.index.name = 'TeamID'
@@ -456,14 +462,14 @@ class Tournament:
             return logloss
 
         losses = self.games.apply(lambda x: logloss(x))
-        losses = losses.loc[
-                losses.index.str.startswith('R')
-                ]
+        if kaggle:
+            losses = losses.loc[
+                    losses.index.str.startswith('R')
+                    ]
 
         return losses
 
-    @property
-    def odds(self):
+    def get_odds(self, kaggle=True):
         '''
         gets odds for all predictions based on the results
         dictionary
@@ -479,6 +485,10 @@ class Tournament:
             return proba
 
         odds = self.games.apply(lambda x: calc_odds(x))
+        if kaggle:
+            odds = odds.loc[
+                    odds.index.str.startswith('R')
+                    ]
         return odds
 
     def graph_games(self, rounds=list(range(7))):

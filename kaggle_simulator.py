@@ -1,15 +1,18 @@
-from ssl import SSL_ERROR_SSL
+'''
+This is designed to run on a Kaggle notebook environment and will not work
+locally without some edits. Use bracket_builder_streamlit.py
+for a local installation
+'''
 import streamlit as st
 # import classes
 
 # Data manipulation
 import pandas as pd
 import numpy as np
-from simulation import Data, Submission, Tournament
+from ncaa_simulator import Data, Submission, Tournament
 import base64
 
 ### change your input dir to a folder with the kaggle data here ###
-input_dir = './input_with_data/'
 
 # Info
 '''
@@ -45,17 +48,20 @@ st.sidebar.write('''
                  If you would like to self-host this app find it on github
                  [here](https://github.com/armstrys/NCAA_BracketBuilder).
                  ''')
+
 # Collect data
-mw = (st.sidebar.radio(label='Men\'s or Women\'s submission?',
-                       options=['Men', 'Women']))[0][0]
 sub_file = (st.sidebar
               .file_uploader(label='Drag your Kaggle solution file here'))
-if st.sidebar.checkbox('Use hardcoded submission - must edit code near line 55'):
-    ################### hard code your submission here #######################
-    sub_file = './input_with_data/updated_submission.csv'
-    ##########################################################################
+mw = (st.sidebar.radio(label='Men\'s or Women\'s submission?',
+                       options=['Men', 'Women']))[0][0]
 
 # Prep data
+if mw == 'M':
+    input_dir = '../input/mens-march-mania-2022/MDataFiles_Stage1'
+elif mw == 'W':
+    input_dir = '../input/womens-march-mania-2022/WDataFiles_Stage1'
+else:
+    raise ValueError('no input data found')
 ncaa_data = Data(mw=mw, dir=input_dir)
 try:
     sub_df = pd.read_csv(sub_file)
