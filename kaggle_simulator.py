@@ -224,9 +224,3 @@ if st.checkbox('Show graphical representation - will slow simulations'):
 
 if st.checkbox('Show Game Result Dictionary with IDs'):
     st.write({slot: t.id for slot, t in tourney.results.items()})
-
-if st.sidebar.button('set historical results'): # doesnt seem to work the way this code executes in streamlit
-    tourney.get_historic_results()
-    results = {s: tourney.t_dict.get(tid)
-               for s, tid in tourney.results.items()}
-    st.session_state.update(results)
