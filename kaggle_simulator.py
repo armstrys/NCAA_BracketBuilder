@@ -57,7 +57,7 @@ mw = (st.sidebar.radio(label='Men\'s or Women\'s submission?',
 
 # Prep data
 if mw == 'M':
-    input_dir = '../input/mens-march-mania-2022/MDataFiles_Stage1'
+    input_dir = '../input/mens-march-mania-2022/MDataFiles_Stage2'
 elif mw == 'W':
     input_dir = '../input/womens-march-mania-2022/WDataFiles_Stage1'
 else:
