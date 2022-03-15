@@ -340,7 +340,7 @@ class Tournament:
             summary = self.summary
 
         columns = [round_names.get(k) for k in range(7)]
-        if self.mw == 'W':
+        if self.mw == 'W' and self.season < 2022:
             columns = columns[1:]
         summary_df = pd.DataFrame(summary)
         summary_df.columns = columns
