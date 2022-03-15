@@ -31,7 +31,11 @@ class Data:
         self.mw = mw.upper()
         self.seasons = pd.read_csv(path/(f'{self.mw}Seasons.csv'))
         self.teams = pd.read_csv(path/(f'{self.mw}Teams.csv'))
-        self.slots = pd.read_csv(path/(f'{self.mw}NCAATourneySlots.csv'))
+        if mw == 'W':
+            self.slots = [pd.read_csv(path/(f'WNCAATourneySlots1998thru2021.csv')),
+                          pd.read_csv(path/(f'WNCAATourneySlots2022.csv'))]
+        else:
+            self.slots = pd.read_csv(path/(f'MNCAATourneySlots.csv'))
         self.seeds = pd.read_csv(path/(f'{self.mw}NCAATourneySeeds.csv'))
         self.seedyear_dict, self.seedyear_dict_rev = \
             self.build_seed_dicts()
@@ -285,7 +289,10 @@ class Tournament:
             slots = slots[data.slots['Season'] == season].copy()
             slots.drop(columns='Season', inplace=True)
         else:
-            pass
+            if season < 2022:
+                slots = slots[0]
+            else:
+                slots = slots[1]
 
         # Initiate game classes and save as Tournament attribute
         def game_init(row):
