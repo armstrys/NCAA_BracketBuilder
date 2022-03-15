@@ -118,11 +118,12 @@ sim_headers = {
 
 tourney = Tournament(ncaa_data, submission, season)
 try:
-  tourney.get_historic_results()
+    tourney.get_historic_results()
 except KeyError:
-  pass
+    pass
+
 historic_results = False
-if tourney.results is not None:
+if len(tourney.results) > 0:
     historic_results = st.sidebar.checkbox('Use historic results', value=True)
 
 if tourney.n_teams == 64 and tourney.current_r == 0:
