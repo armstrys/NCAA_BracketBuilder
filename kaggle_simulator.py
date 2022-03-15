@@ -57,9 +57,15 @@ mw = (st.sidebar.radio(label='Men\'s or Women\'s submission?',
 
 # Prep data
 if mw == 'M':
-    input_dir = '../input/mens-march-mania-2022/MDataFiles_Stage2'
+    try:
+        input_dir = '../input/mens-march-mania-2022/MDataFiles_Stage2'
+    except FileNotFoundError:
+        input_dir = '../input/mens-march-mania-2022/MDataFiles_Stage1'
 elif mw == 'W':
-    input_dir = '../input/womens-march-mania-2022/WDataFiles_Stage1'
+    try:
+        input_dir = '../input/womens-march-mania-2022/WDataFiles_Stage2'
+    except FileNotFoundError:
+        input_dir = '../input/womens-march-mania-2022/WDataFiles_Stage1'
 else:
     raise ValueError('no input data found')
 ncaa_data = Data(mw=mw, dir=input_dir)
