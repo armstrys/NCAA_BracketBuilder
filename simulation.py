@@ -285,7 +285,7 @@ class Tournament:
         # Only men's file has differing slots by year - select the year
         #       we need and remove season column
         slots = data.slots
-        if 'Season' in slots.columns:
+        if self.mw == 'M':
             slots = slots[data.slots['Season'] == season].copy()
             slots.drop(columns='Season', inplace=True)
         else:
