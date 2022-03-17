@@ -192,12 +192,11 @@ def get_table_download_link():
     out: href string
     '''
 
-    df = pd.DataFrame.from_dict({
-                            'slot': results.keys(),
-                            'winner': results.values(),
-                            'likelihood': tourney.get_odds(kaggle=False),
-                            'logloss': tourney.get_losses(kaggle=False)
-                                })
+    df = pd.DataFrame.from_dict({'slot': results.keys()})
+    df.set_index('slot', inplace=True)
+    df['winner'] = results.values()
+    df['likelihood'] = tourney.get_odds(kaggle=False)
+    df['logloss'] = tourney.get_losses(kaggle=False)
 
     csv = df.to_csv(index=False)
     b64 = base64.b64encode(csv.encode()).decode()
