@@ -209,7 +209,7 @@ def get_table_download_link():
     df['winner'] = results.values()
     df['likelihood'] = tourney.get_odds(kaggle=False)
     df['logloss'] = tourney.get_losses(kaggle=False)
-                                
+    df.reset_index(inplace=True)
 
     csv = df.to_csv(index=False)
     b64 = base64.b64encode(csv.encode()).decode()
