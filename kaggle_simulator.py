@@ -172,11 +172,16 @@ while tourney.current_r < 7:
             st.session_state[g.slot] = \
                 st.radio(label='Manual pick:',
                          options=[w_name, l_name])
+
+            prediction = submission.get_pred(g.game_id)
+            loss = prediction.logloss[winner.id]
             if st.session_state[g.slot] != winner.name:
                 w_name = st.session_state[g.slot]
-                tourney.results.update({g.slot: loser})
+                loss = prediction.logloss[loser]
+                tourney.results.update({g.slot: loser.id})
                 tourney.current_r = g.r
-            st.write(f'Winner: {w_name}')
+
+            st.write(f'Winner: {w_name} for a model loss of {loss:.5f}')
     tourney.advance_teams()
     tourney.current_r += 1
 
@@ -199,7 +204,6 @@ if st.checkbox('Show submission performance summary'):
                        logloss=round(avglogloss*1e5)/1e5,
                        b=int(success*100)))
 
-
 def get_table_download_link():
     '''
     Generates a link allowing the data in a given panda dataframe to be
@@ -208,18 +212,24 @@ def get_table_download_link():
     out: href string
     '''
 
-    df = pd.DataFrame.from_dict({'slot': results.keys()})
+    games = tourney.games
+    slots = games.map(lambda x: x.slot)
+    strong_name = games.map(lambda x: x.strong_team.name)
+    weak_name = games.map(lambda x: x.weak_team.name)
+    winning_name = slots.map(lambda x: tourney.results[x].name)
+
+    df = pd.DataFrame.from_dict({'slot': slots})
     df.set_index('slot', inplace=True)
-    df['winner'] = results.values()
+    df['strong_name'] = strong_name
+    df['weak_name'] = weak_name
+    df['winner'] = winning_name
     df['likelihood'] = tourney.get_odds(kaggle=False)
     df['logloss'] = tourney.get_losses(kaggle=False)
-    df.reset_index(inplace=True)
 
-    csv = df.to_csv(index=False)
+    csv = df.to_csv()
     b64 = base64.b64encode(csv.encode()).decode()
     href = f'<a href="data:file/csv;base64,{b64}">Download results csv</a>'
     return href
-
 
 st.markdown(get_table_download_link(), unsafe_allow_html=True)
 

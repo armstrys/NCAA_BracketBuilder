@@ -296,7 +296,7 @@ class Tournament:
 
         # Initiate game classes and save as Tournament attribute
         def game_init(row):
-            game = Game(row, submission, data.t_dict,
+            game = Game(row, data.t_dict,
                         self.s_dict, self.season)
             return game
 
@@ -569,7 +569,7 @@ class Game:
     submission class.
     '''
 
-    def __init__(self, row_slots, submission, t_dict, s_dict, season):
+    def __init__(self, row_slots, t_dict, s_dict, season):
         # Add relavent metadata for game - source is slots csv
         self.season = season
         self.slot = row_slots['Slot']
