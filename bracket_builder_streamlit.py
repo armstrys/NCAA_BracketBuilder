@@ -166,8 +166,8 @@ while tourney.current_r < 7:
             loss = prediction.logloss[winner.id]
             if st.session_state[g.slot] != winner.name:
                 w_name = st.session_state[g.slot]
-                loss = prediction.logloss[loser]
-                tourney.results.update({g.slot: loser.id})
+                loss = prediction.logloss[loser.id]
+                tourney.results.update({g.slot: loser})
                 tourney.current_r = g.r
 
             st.write(f'Winner: {w_name} for a model loss of {loss:.5f}')
