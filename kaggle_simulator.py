@@ -144,7 +144,11 @@ while tourney.current_r < 7:
     for g in tourney.games:
         if g.r == tourney.current_r:
             pred = submission.get_pred(g.game_id)
-            winner = tourney.results[g.slot]
+            try:
+                winner = tourney.results[g.slot]
+            except KeyError:
+                tourney.simulate_games(style)
+                winner = tourney.results[g.slot]
             if winner.id == g.strong_team.id:
                 loser = g.weak_team
             elif winner.id == g.weak_team.id:
